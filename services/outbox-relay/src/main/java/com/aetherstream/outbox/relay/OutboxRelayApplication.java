@@ -11,7 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * to Kafka (at-least-once, batched, with retries), marks them SENT, and routes exhausted
  * failures to the dead-letter topic.
  *
- * <p>The polling/publishing logic is implemented in the relay phase.
+ * <p>The polling/publishing logic is implemented in {@link OutboxRelayService}.
  */
 @SpringBootApplication(scanBasePackages = "com.aetherstream")
 @EntityScan(basePackages = "com.aetherstream.infrastructure.persistence.entity")

@@ -8,6 +8,18 @@ public final class OutboxEventMapper {
     private OutboxEventMapper() {
     }
 
+    public static OutboxEvent toDomain(OutboxEventEntity entity) {
+        return new OutboxEvent(
+                entity.getId(),
+                entity.getAggregateType(),
+                entity.getAggregateId(),
+                entity.getEventType(),
+                entity.getPayload(),
+                entity.getStatus(),
+                entity.getCreatedAt(),
+                entity.getProcessedAt());
+    }
+
     public static OutboxEventEntity toEntity(OutboxEvent event) {
         var entity = OutboxEventEntity.newInstance();
         entity.setId(event.id());
