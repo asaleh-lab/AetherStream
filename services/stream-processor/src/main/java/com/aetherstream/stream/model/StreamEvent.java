@@ -3,7 +3,6 @@ package com.aetherstream.stream.model;
 import com.aetherstream.domain.event.EventEnvelope;
 import com.aetherstream.domain.model.GridLoad;
 import com.aetherstream.domain.model.Turbine;
-import com.aetherstream.domain.model.WeatherReading;
 import java.time.Instant;
 
 /**
@@ -16,7 +15,6 @@ public record StreamEvent(
         Instant eventTime,
         String correlationId,
         Turbine turbine,
-        WeatherReading weather,
         GridLoad grid) {
 
     public static StreamEvent turbine(EventEnvelope envelope, Turbine turbine, String region) {
@@ -27,19 +25,6 @@ public record StreamEvent(
                 envelope.occurredAt(),
                 envelope.correlationId(),
                 turbine,
-                null,
-                null);
-    }
-
-    public static StreamEvent weather(EventEnvelope envelope, WeatherReading reading) {
-        return new StreamEvent(
-                StreamEventKind.WEATHER,
-                reading.region(),
-                reading.region(),
-                envelope.occurredAt(),
-                envelope.correlationId(),
-                null,
-                reading,
                 null);
     }
 
@@ -50,7 +35,6 @@ public record StreamEvent(
                 gridLoad.region(),
                 envelope.occurredAt(),
                 envelope.correlationId(),
-                null,
                 null,
                 gridLoad);
     }

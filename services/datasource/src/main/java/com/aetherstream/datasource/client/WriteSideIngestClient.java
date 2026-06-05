@@ -16,10 +16,6 @@ public class WriteSideIngestClient {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
-    public void postWeather(WeatherPayload payload) {
-        post("/api/ingest/weather", payload);
-    }
-
     public void postTurbine(TurbinePayload payload) {
         post("/api/ingest/turbine", payload);
     }
@@ -37,8 +33,6 @@ public class WriteSideIngestClient {
                 .retrieve()
                 .toBodilessEntity();
     }
-
-    public record WeatherPayload(String region, double windSpeedMs, double temperatureC) {}
 
     public record TurbinePayload(String turbineId, double rpm, double powerOutput, double vibrationLevel) {}
 

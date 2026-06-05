@@ -4,7 +4,6 @@ import com.aetherstream.domain.event.EventEnvelope;
 import com.aetherstream.domain.event.EventTypes;
 import com.aetherstream.domain.model.GridLoad;
 import com.aetherstream.domain.model.Turbine;
-import com.aetherstream.domain.model.WeatherReading;
 import com.aetherstream.stream.envelope.EventEnvelopeJson;
 import com.aetherstream.stream.model.StreamEvent;
 import com.aetherstream.stream.model.TurbineRegionMapper;
@@ -21,10 +20,6 @@ public class IngestEventMapper implements MapFunction<String, StreamEvent> {
                 Turbine turbine = (Turbine) envelope.payload();
                 String region = TurbineRegionMapper.regionFor(turbine.turbineId());
                 yield StreamEvent.turbine(envelope, turbine, region);
-            }
-            case EventTypes.WEATHER_READING_RECORDED -> {
-                WeatherReading reading = (WeatherReading) envelope.payload();
-                yield StreamEvent.weather(envelope, reading);
             }
             case EventTypes.GRID_LOAD_RECORDED -> {
                 GridLoad gridLoad = (GridLoad) envelope.payload();

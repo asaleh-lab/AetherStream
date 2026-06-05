@@ -36,3 +36,19 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+.efficiency-card-split {
+    min-height: 4.5rem;
+}
+
+.efficiency-card-split__metric,
+.efficiency-card-split__gauge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 4.5rem;
+}
+
+.efficiency-card-split__metric {
+    border-right: 1px solid var(--rz-base-300, #dee2e6);
+}

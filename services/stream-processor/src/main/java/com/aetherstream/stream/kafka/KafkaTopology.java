@@ -25,11 +25,10 @@ public final class KafkaTopology {
 
     public static void wire(StreamExecutionEnvironment env, StreamProcessorConfig config) {
         DataStream<String> turbineRaw = source(env, config, Topics.TURBINE_EVENTS);
-        DataStream<String> weatherRaw = source(env, config, Topics.WEATHER_EVENTS);
         DataStream<String> gridRaw = source(env, config, Topics.GRID_EVENTS);
 
         DataStream<StreamEvent> ingest = turbineRaw
-                .union(weatherRaw, gridRaw)
+                .union(gridRaw)
                 .map(new IngestEventMapper())
                 .assignTimestampsAndWatermarks(
                         WatermarkStrategy.<StreamEvent>forBoundedOutOfOrderness(ALLOWED_LATENESS)
@@ -39,9 +38,7 @@ public final class KafkaTopology {
                 .keyBy(StreamEvent::region)
                 .process(new EnergyAggregationFunction());
 
-        DataStream<String> alerts = ingest
-                .filter(event -> event.kind() != com.aetherstream.stream.model.StreamEventKind.WEATHER)
-                .flatMap(new AnomalyDetectionFunction(config.vibrationThreshold()));
+        DataStream<String> alerts = ingest.flatMap(new AnomalyDetectionFunction(config.vibrationThreshold()));
 
         energyStates.sinkTo(sink(config, Topics.ENERGY_STATE_EVENTS));
         alerts.sinkTo(sink(config, Topics.ALERTS));

@@ -13,7 +13,7 @@ See [HANDOFF.md](HANDOFF.md) for cross-session state and [specs/001-aetherstream
 
 ## What it demonstrates
 
-- **Kafka event-driven architecture** — three ingestion streams (weather, turbine telemetry, grid load) converge on a topic backbone; downstream processing is decoupled from producers.
+- **Kafka event-driven architecture** — two ingestion streams (turbine telemetry, grid load) converge on a topic backbone; downstream processing is decoupled from producers.
 - **CQRS** — write model (commands, domain state, outbox) separated from read model (query-optimized projections served by the API gateway).
 - **Outbox pattern** — no dual-write: domain changes and `outbox_events` rows commit in one transaction; a relay publishes to Kafka with at-least-once delivery and idempotent consumers.
 - **Stream processing (Flink-style)** — aggregation joins, anomaly detection, and a decision engine produce energy state, alerts, and recommendations.
@@ -25,7 +25,7 @@ The repo deliberately separates **producers** from the **backbone** so the demo 
 
 | Part | Modules | Responsibility |
 |------|---------|----------------|
-| **Data source** | `datasource` | One thin Spring Boot app simulating the outside world. No DB, domain, or CQRS. Three schedulers at real-world cadences POST JSON to write-side: weather **GET poll** (60s), turbine telemetry (5s), grid load (15s). |
+| **Data source** | `datasource` | One thin Spring Boot app simulating the outside world. No DB, domain, or CQRS. Two schedulers at real-world cadences POST JSON to write-side: turbine telemetry (5s), grid load (15s). |
 | **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | `application.yml`, JSON logging, CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
 
 ```text
@@ -74,7 +74,7 @@ docker compose -f infra/docker-compose.yml --profile full up -d --build
 ```
 
 Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
-(auto-forwarding weather, turbine, and grid readings), **outbox-relay**, **stream-processor**
+(auto-forwarding turbine and grid readings), **outbox-relay**, **stream-processor**
 (Flink aggregation + anomaly detection), and **api-gateway** (query APIs + WebSocket).
 With `--profile full`, also starts **blazor-dashboard** on port 8086. Flyway runs on
 service startup.

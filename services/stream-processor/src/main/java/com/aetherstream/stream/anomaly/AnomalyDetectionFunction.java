@@ -3,7 +3,6 @@ package com.aetherstream.stream.anomaly;
 import com.aetherstream.domain.model.Alert;
 import com.aetherstream.stream.envelope.EventEnvelopeJson;
 import com.aetherstream.stream.model.StreamEvent;
-import com.aetherstream.stream.model.StreamEventKind;
 import java.util.List;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.util.Collector;
@@ -24,7 +23,6 @@ public class AnomalyDetectionFunction implements FlatMapFunction<StreamEvent, St
                     case TURBINE -> AnomalyRules.evaluateTurbine(
                             event.turbine(), vibrationThreshold, event.eventTime());
                     case GRID -> AnomalyRules.evaluateGrid(event.grid(), event.eventTime());
-                    case WEATHER -> List.of();
                 };
 
         for (Alert alert : alerts) {

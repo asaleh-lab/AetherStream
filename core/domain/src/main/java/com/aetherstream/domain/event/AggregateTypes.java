@@ -4,7 +4,6 @@ package com.aetherstream.domain.event;
 public final class AggregateTypes {
 
     public static final String TURBINE = "Turbine";
-    public static final String WEATHER_READING = "WeatherReading";
     public static final String GRID_LOAD = "GridLoad";
 
     private AggregateTypes() {

@@ -13,7 +13,7 @@
 
     <artifactId>datasource</artifactId>
     <name>AetherStream Service :: Datasource</name>
-    <description>Simulates external feeds (weather poll, turbine telemetry, grid load) and POSTs JSON to write-side.</description>
+    <description>Simulates external feeds (turbine telemetry, grid load) and POSTs JSON to write-side.</description>
 
     <dependencies>
         <dependency>

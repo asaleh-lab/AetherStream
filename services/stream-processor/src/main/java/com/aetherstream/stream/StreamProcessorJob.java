@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Topology:
  * <ul>
- *   <li>Consume {@code turbine-events}, {@code weather-events}, {@code grid-events}.</li>
+ *   <li>Consume {@code turbine-events} and {@code grid-events}.</li>
  *   <li>Key by region; maintain keyed state to compute {@code totalWindPower},
  *       {@code gridDemand}, {@code efficiencyScore}; emit {@code energy-state-events}.</li>
  *   <li>Apply keyed anomaly rules (vibration spike, failure patterns, grid overload) and

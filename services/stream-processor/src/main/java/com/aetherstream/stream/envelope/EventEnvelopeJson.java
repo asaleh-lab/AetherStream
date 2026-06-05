@@ -6,7 +6,6 @@ import com.aetherstream.domain.model.Alert;
 import com.aetherstream.domain.model.EnergyState;
 import com.aetherstream.domain.model.GridLoad;
 import com.aetherstream.domain.model.Turbine;
-import com.aetherstream.domain.model.WeatherReading;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,8 +73,6 @@ public final class EventEnvelopeJson {
             return switch (eventType) {
                 case EventTypes.TURBINE_TELEMETRY_RECORDED ->
                         MAPPER.treeToValue(payloadNode, Turbine.class);
-                case EventTypes.WEATHER_READING_RECORDED ->
-                        MAPPER.treeToValue(payloadNode, WeatherReading.class);
                 case EventTypes.GRID_LOAD_RECORDED -> MAPPER.treeToValue(payloadNode, GridLoad.class);
                 default -> MAPPER.treeToValue(payloadNode, Object.class);
             };

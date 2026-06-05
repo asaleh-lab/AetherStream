@@ -18,11 +18,6 @@ public class KafkaTopicsConfig {
     private static final short REPLICAS = 1;
 
     @Bean
-    NewTopic weatherEventsTopic() {
-        return TopicBuilder.name(Topics.WEATHER_EVENTS).partitions(PARTITIONS).replicas(REPLICAS).build();
-    }
-
-    @Bean
     NewTopic turbineEventsTopic() {
         return TopicBuilder.name(Topics.TURBINE_EVENTS).partitions(PARTITIONS).replicas(REPLICAS).build();
     }
