@@ -47,7 +47,8 @@ AetherStream/
     blazor-dashboard/           # .NET 8 Blazor Server + Radzen
   infra/
     docker-compose.yml  kafka/create-topics.sh  postgres/
-  migrations/                   # Flyway: db/migration/V*.sql
+  # Flyway migrations live on the infrastructure classpath:
+  #   core/infrastructure/src/main/resources/db/migration/V*.sql
   specs/                        # spec-kit artifacts
   HANDOFF.md  README.md
 ```
@@ -171,7 +172,9 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 - Write model: `turbine_state` (+ `outbox_events`).
 - Read models: `energy_state_snapshot`, `alerts`. Updated by gateway-side consumers from
-  Kafka. Schema owned by Flyway (`migrations/db/migration/V1__init.sql` onward).
+  Kafka. Schema owned by Flyway, stored on the infrastructure classpath at
+  `core/infrastructure/src/main/resources/db/migration/V1__init.sql` (so every service that
+  depends on `infrastructure` applies it automatically on startup).
 
 ## 9. API & real-time gateway
 
