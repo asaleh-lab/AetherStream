@@ -7,12 +7,26 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
- * Repository for the transactional outbox. The relay polls PENDING rows oldest-first;
- * locking/skip-locked semantics are added in the relay phase.
+ * Repository for the transactional outbox. The relay polls PENDING rows oldest-first
+ * using {@code FOR UPDATE SKIP LOCKED} for safe concurrent polling.
  */
 public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, UUID> {
+
+    @Query(
+            value =
+                    """
+                    SELECT * FROM outbox_events
+                    WHERE status = 'PENDING'
+                    ORDER BY created_at ASC
+                    LIMIT :limit
+                    FOR UPDATE SKIP LOCKED
+                    """,
+            nativeQuery = true)
+    List<OutboxEventEntity> lockPendingBatch(@Param("limit") int limit);
 
     List<OutboxEventEntity> findByStatusOrderByCreatedAtAsc(OutboxStatus status, Limit limit);
 
