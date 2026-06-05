@@ -5,6 +5,7 @@ import com.aetherstream.application.port.out.EnergyStateReadModel;
 import com.aetherstream.domain.event.EventTypes;
 import com.aetherstream.domain.model.Alert;
 import com.aetherstream.domain.model.EnergyState;
+import com.aetherstream.domain.model.Turbine;
 import com.aetherstream.gateway.config.KafkaConsumerConfiguration;
 import com.aetherstream.gateway.realtime.RealtimeWebSocketHandler;
 import com.aetherstream.infrastructure.correlation.CorrelationIdContext;
@@ -58,6 +59,22 @@ public class ReadModelProjectionConsumer {
             energyStateReadModel.upsert(envelope.eventId(), state);
             realtimeWebSocketHandler.broadcast("energy-state", state);
             log.debug("Projected energy state for region {}", state.region());
+        });
+    }
+
+    @KafkaListener(
+            topics = KafkaConsumerConfiguration.TURBINE_TOPIC,
+            groupId = "${spring.kafka.consumer.group-id}")
+    public void onTurbine(ConsumerRecord<String, String> record) {
+        withCorrelation(record, () -> {
+            var envelope = envelopeParser.parse(record.value());
+            if (!EventTypes.TURBINE_TELEMETRY_RECORDED.equals(envelope.eventType())) {
+                log.debug("Skipping unexpected event type on turbine topic: {}", envelope.eventType());
+                return;
+            }
+            var turbine = (Turbine) envelope.payload();
+            realtimeWebSocketHandler.broadcast("turbine", turbine);
+            log.debug("Broadcast turbine telemetry for {}", turbine.turbineId());
         });
     }
 

@@ -1,8 +1,14 @@
 using AetherStream.Dashboard.Components;
 using AetherStream.Dashboard.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "dataprotection-keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

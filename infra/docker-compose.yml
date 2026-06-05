@@ -240,6 +240,8 @@ services:
       Gateway__BaseUrl: http://api-gateway:8085
       Gateway__WebSocketUrl: ws://api-gateway:8085/ws/realtime
       ASPNETCORE_URLS: http://+:8080
+    volumes:
+      - blazor-dataprotection:/app/dataprotection-keys
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -251,3 +253,4 @@ services:
 
 volumes:
   aether-pgdata:
+  blazor-dataprotection:

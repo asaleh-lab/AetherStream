@@ -67,6 +67,25 @@ public sealed class DashboardState
         Notify();
     }
 
+    public void UpsertTurbine(TurbineDto turbine)
+    {
+        lock (_lock)
+        {
+            var list = Turbines.ToList();
+            var index = list.FindIndex(t => t.TurbineId == turbine.TurbineId);
+            if (index >= 0)
+            {
+                list[index] = turbine;
+            }
+            else
+            {
+                list.Add(turbine);
+            }
+            Turbines = list;
+        }
+        Notify();
+    }
+
     public void SetTurbines(IEnumerable<TurbineDto> turbines)
     {
         lock (_lock)

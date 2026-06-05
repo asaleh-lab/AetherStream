@@ -91,6 +91,13 @@ public sealed class RealtimeConnectionService(
                         dashboardState.UpsertEnergyState(energy);
                     }
                     break;
+                case "turbine":
+                    var turbine = payload.Deserialize<TurbineDto>(JsonOptions);
+                    if (turbine is not null)
+                    {
+                        dashboardState.UpsertTurbine(turbine);
+                    }
+                    break;
                 case "alert":
                     var alert = payload.Deserialize<AlertDto>(JsonOptions);
                     if (alert is not null)
