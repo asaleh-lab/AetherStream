@@ -16,6 +16,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton<DashboardState>();
+builder.Services.AddSingleton<DashboardDisplay>();
 builder.Services.AddSingleton<GatewayApiClient>();
 builder.Services.AddHostedService<DashboardBootstrapService>();
 builder.Services.AddHostedService<RealtimeConnectionService>();

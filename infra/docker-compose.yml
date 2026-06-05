@@ -239,6 +239,7 @@ services:
     environment:
       Gateway__BaseUrl: http://api-gateway:8085
       Gateway__WebSocketUrl: ws://api-gateway:8085/ws/realtime
+      Dashboard__DisplayTimeZoneId: Europe/Berlin
       ASPNETCORE_URLS: http://+:8080
     volumes:
       - blazor-dataprotection:/app/dataprotection-keys

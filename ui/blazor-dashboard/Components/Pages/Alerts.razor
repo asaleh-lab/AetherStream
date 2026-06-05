@@ -3,6 +3,7 @@
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Alerts - AetherStream</PageTitle>
@@ -26,7 +27,7 @@ else
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@alert.Type" />
                 <RadzenText TextStyle="TextStyle.Body1">@alert.Message</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">
-                    @alert.Source · @alert.Timestamp.ToLocalTime().ToString("g")
+                    @alert.Source · @Display.FormatTimestamp(alert.Timestamp)
                 </RadzenText>
             </RadzenStack>
         </RadzenCard>

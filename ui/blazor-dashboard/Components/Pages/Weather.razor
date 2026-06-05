@@ -3,6 +3,7 @@
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Weather - AetherStream</PageTitle>
@@ -24,7 +25,7 @@
                 <RadzenText TextStyle="TextStyle.H6">Wind contribution</RadzenText>
                 <RadzenText TextStyle="TextStyle.H3">@region.TotalWindPower.ToString("N0") kW</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">
-                    Efficiency @((region.EfficiencyScore * 100).ToString("N0"))% · updated @region.Timestamp.ToLocalTime().ToString("g")
+                    Efficiency @DashboardDisplay.FormatEfficiencyPercent(region.EfficiencyScore) · updated @Display.FormatTimestamp(region.Timestamp)
                 </RadzenText>
             </RadzenCard>
         </RadzenColumn>
