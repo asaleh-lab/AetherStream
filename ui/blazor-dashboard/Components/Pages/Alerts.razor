@@ -24,7 +24,7 @@ else
                 <RadzenBadge BadgeStyle="@AlertBadgeStyle.ForSeverity(alert.Severity)" Text="@alert.Severity" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@alert.Type" />
                 <RadzenText TextStyle="TextStyle.Body1">@alert.Message</RadzenText>
-                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">
+                <RadzenText TextStyle="TextStyle.Caption">
                     @alert.Source · @alert.Timestamp.ToLocalTime().ToString("g")
                 </RadzenText>
             </RadzenStack>

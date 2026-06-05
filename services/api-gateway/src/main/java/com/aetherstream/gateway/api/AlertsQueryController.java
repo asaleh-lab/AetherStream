@@ -20,7 +20,7 @@ public class AlertsQueryController {
     }
 
     @GetMapping
-    public List<Alert> alerts(@RequestParam(defaultValue = "50") int limit) {
+    public List<Alert> alerts(@RequestParam(name = "limit", defaultValue = "50") int limit) {
         return queryBus.dispatch(new GetAlertsQuery(limit));
     }
 }
