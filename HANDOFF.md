@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 3 outbox relay — batched publish, compose, integration test)
+Last updated: 2026-06-05 (Phase 4 stream processor — Flink aggregation + anomaly)
 
 ## 1. What this project is
 
@@ -32,60 +32,61 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
      `application.yml`, structured logging, CQRS command bus, domain, JPA, transactional outbox,
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
 - **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
-  **write-side** + **datasource**. Reviewers need Docker only.
+  **write-side** + **datasource** + **outbox-relay** + **stream-processor**. Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
 1. **Infra & skeleton** — **DONE** (PR #1).
-2. **Write side + Outbox** — **DONE**. Central `write-side` ingest APIs, command handlers,
-   domain persistence, transactional outbox writes; single `datasource` producer.
-3. **Outbox relay** — **IN PROGRESS** on `phase-3/outbox-relay`. Idempotent batched publish,
-   retries, DLQ; compose service added.
-4. **Stream processing (Flink)** — aggregation join, anomaly detection, decision engine.
+2. **Write side + Outbox** — **DONE** (PR #2).
+3. **Outbox relay** — **DONE** (PR #3).
+4. **Stream processing (Flink)** — **IN PROGRESS** on `phase-4/stream-processor`. Aggregation join
+   + anomaly detection implemented; decision engine still skeleton.
 5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
 6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
 
 ## 4. Current status
 
-**Branch:** `phase-3/outbox-relay`  
+**Branch:** `phase-4/stream-processor`  
 **Base:** `main`
 
-### Phase 2 — complete
-
-- [x] CQRS command bus, ingest handlers, outbox writes (on **write-side**)
-- [x] Testcontainers write-side integration test
-- [x] Correlation ID filter
-- [x] **Single `datasource` service** — weather poll + turbine + grid simulators POST to write-side
-- [x] **write-side** in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8080)
-- [x] [scripts/smoke-ingest.ps1](scripts/smoke-ingest.ps1) — compose up + POST to write-side
-
-### Phase 3 — in progress
+### Phase 3 — complete (merged PR #3)
 
 - [x] Outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka
 - [x] Retries across poll cycles; exhausted failures → `dead-letter-events` + `FAILED`
 - [x] `outbox-relay` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8084)
 - [x] Testcontainers integration test (Postgres + Kafka): outbox row → Kafka topic
-- [ ] Open PR and merge Phase 3
+
+### Phase 4 — in progress
+
+- [x] Flink `stream-processor`: consume `turbine-events`, `weather-events`, `grid-events`
+- [x] Keyed-by-region aggregation (Flink state): `totalWindPower`, `gridDemand`, `efficiencyScore`
+  → `energy-state-events`
+- [x] Anomaly rules: vibration spike, turbine failure pattern, grid overload → `alerts`
+- [x] Event-time watermarks with 5s allowed lateness
+- [x] `stream-processor` in [infra/docker-compose.yml](infra/docker-compose.yml)
+- [x] Pipeline + operator harness tests (aggregation, anomaly, envelope parsing)
+- [ ] Decision engine (`decision-engine` skeleton → optimization recommendations)
+- [ ] Open PR and merge Phase 4 (do this at end of session)
 
 ### Verified (2026-06-05)
 
 ```powershell
-.\mvnw.cmd package                              # OK (WriteSideOutbox + OutboxRelay integration tests)
-docker compose -f infra/docker-compose.yml config # OK
-.\scripts\smoke-ingest.ps1 -SkipCommit          # compose + ingest smoke (after image build)
+.\mvnw.cmd -pl services/stream-processor -am test   # OK (pipeline + harness tests)
+docker compose -f infra/docker-compose.yml config    # OK
+docker build -f infra/docker/Dockerfile.stream-processor -t aetherstream/stream-processor:local .  # OK
 ```
 
-### Phase 4 — start here (after Phase 3 PR)
+### Phase 5 — start here (after Phase 4 PR)
 
-1. Implement Flink stream processing: aggregation join, anomaly detection.
-2. Add `stream-processor` to docker-compose when ready.
+1. Implement `api-gateway` read-model consumers (energy-state, alerts projections).
+2. Add query REST APIs and WebSocket push.
+3. Add `api-gateway` to docker-compose.
 
-**Do not** implement query-side / api-gateway projections in Phase 4 — that is Phase 5.
+**Do not** implement Blazor UI in Phase 5 — that is Phase 6.
 
 ### Later compose work (natural follow-on)
 
-- `outbox-relay`, `stream-processor`, `decision-engine`, `api-gateway`, Blazor UI — add to
-  compose as each phase lands (goal: full stack in one compose).
+- `decision-engine`, `api-gateway`, Blazor UI — add to compose as each phase lands.
 - Optional compose **profile** `full` when all services are containerized (SC-004).
 
 ## 5. Environment notes / gotchas
@@ -94,25 +95,31 @@ docker compose -f infra/docker-compose.yml config # OK
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
-- **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084).
+- **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
+  `stream-processor` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
 - Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
+- Stream processor env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_VIBRATION_THRESHOLD` (default 1.0),
+  `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
+- Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
 - First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
 - Stop host Java processes before compose if ports 8080–8081 are already taken.
 
 ## 6. Open items / blockers
 
-- PR #2 (Phase 2) merged to `main`.
-- Phase 3 PR not yet opened.
+- Phase 3 PR #3 merged to `main`.
+- Phase 4 PR not yet opened.
+- `decision-engine` still skeleton (optimization recommendations — finish in Phase 4 or defer).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 3 (outbox relay) or open Phase 3 PR.
+Continue AetherStream Phase 4 (Flink stream processing).
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-If Phase 3 PR is merged, start Phase 4 (Flink stream processing).
+At the end of the session: commit, open the Phase 4 PR, and merge it right away.
+If Phase 4 PR is already merged, start Phase 5 (query side + api-gateway).
 ```
 
 ## 8. Recent commits (chronological)
@@ -133,4 +140,5 @@ feat(services): implement outbox relay with retries and DLQ routing
 test(services): add Testcontainers outbox relay integration test
 infra(docker): add outbox-relay service to compose
 docs: update HANDOFF for Phase 3 outbox relay
+feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
 ```

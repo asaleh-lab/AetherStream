@@ -167,5 +167,28 @@ services:
     labels:
       aetherstream.role: outbox-relay
 
+  # --- Stream processor (Flink: aggregation join + anomaly detection) ---
+
+  stream-processor:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.stream-processor
+    image: aetherstream/stream-processor:local
+    container_name: aether-stream-processor
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      outbox-relay:
+        condition: service_healthy
+    environment:
+      AETHER_KAFKA_BOOTSTRAP: kafka:9092
+      AETHER_KAFKA_OFFSET_RESET: latest
+      AETHER_VIBRATION_THRESHOLD: "1.0"
+    labels:
+      aetherstream.role: stream-processor
+    restart: unless-stopped
+
 volumes:
   aether-pgdata:
