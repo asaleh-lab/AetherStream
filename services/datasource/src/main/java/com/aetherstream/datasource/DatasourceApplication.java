@@ -5,9 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Thin producer for all external feeds. No DB, domain, or CQRS — schedules three independent
- * producers (weather GET poll, turbine telemetry, grid load) at real-world intervals and POSTs
- * JSON to the write-side ingest API.
+ * Thin producer for simulated external feeds. No DB, domain, or CQRS — schedules two independent
+ * simulators (turbine telemetry, grid load) at real-world intervals and POSTs JSON to the
+ * write-side ingest API.
  */
 @SpringBootApplication
 @EnableScheduling

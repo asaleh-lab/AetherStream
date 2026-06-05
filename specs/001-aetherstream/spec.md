@@ -12,10 +12,10 @@ with a .NET Blazor + Radzen real-time UI.
 
 ## Overview
 
-AetherStream ingests three real-time data streams (wind turbine telemetry, weather
-conditions, grid load), processes them through a streaming pipeline, and produces
-aggregated energy state, anomaly alerts, and optimization recommendations. An operator
-watches a live dashboard that updates without manual refresh.
+AetherStream ingests two real-time data streams (wind turbine telemetry and grid load),
+processes them through a streaming pipeline, and produces aggregated energy state, anomaly
+alerts, and optimization recommendations. An operator watches a live dashboard that updates
+without manual refresh.
 
 The system exists to demonstrate correct design of: an event-driven Kafka backbone,
 reliable publishing via the Outbox pattern, CQRS separation, stream processing
@@ -25,7 +25,7 @@ reliable publishing via the Outbox pattern, CQRS separation, stream processing
 
 ### User Story 1 - Reliable ingestion without event loss (Priority: P1)
 
-As the platform, when a telemetry, weather, or grid reading is ingested, the reading is
+As the platform, when a telemetry or grid reading is ingested, the reading is
 persisted and a corresponding event is reliably published to Kafka exactly once from the
 producer's perspective, even if the process crashes immediately after the database commit.
 
@@ -53,13 +53,13 @@ events flow, without refreshing the page.
 **Why this priority**: This is the primary user-facing value and exercises the full
 pipeline end to end (ingest -> outbox -> Kafka -> stream join -> read model -> WebSocket -> UI).
 
-**Independent Test**: With the pipeline running, push synthetic turbine/weather/grid
+**Independent Test**: With the pipeline running, push synthetic turbine/grid
 events and observe the dashboard energy cards and efficiency gauge update within the
 target latency, with no manual refresh.
 
 **Acceptance Scenarios**:
 
-1. **Given** turbine, weather, and grid events for a region, **When** the aggregation stream processes a window, **Then** an `energy-state-events` record is produced with `region`, `totalWindPower`, `gridDemand`, and `efficiencyScore`.
+1. **Given** turbine and grid events for a region, **When** the aggregation stream processes a window, **Then** an `energy-state-events` record is produced with `region`, `totalWindPower`, `gridDemand`, and `efficiencyScore`.
 2. **Given** a new energy-state event, **When** it reaches the gateway, **Then** the dashboard updates the affected region's cards via WebSocket push.
 
 ### User Story 3 - Real-time anomaly alerts (Priority: P2)
@@ -95,13 +95,12 @@ engine emits a recommendation with an actionable suggestion.
 
 1. **Given** an energy state with efficiency below target, **When** the decision engine evaluates it, **Then** a recommendation is produced describing the suggested adjustment.
 
-### User Story 5 - Turbine and weather monitoring views (Priority: P3)
+### User Story 5 - Turbine monitoring view (Priority: P3)
 
-As an operator, I view a turbine health grid (health status, vibration indicators) and a
-weather panel (wind-speed trends, environmental conditions).
+As an operator, I view a turbine health grid (health status, vibration indicators).
 
 **Independent Test**: Query the turbine read model and confirm the Radzen DataGrid shows
-per-turbine state; confirm the weather panel reflects the latest weather readings.
+per-turbine state.
 
 **Acceptance Scenarios**:
 
@@ -114,33 +113,30 @@ per-turbine state; confirm the weather panel reflects the latest weather reading
 - Duplicate delivery from at-least-once semantics -> consumers dedupe by event id.
 - Late or out-of-order events within a window -> handled by the stream's windowing/watermark policy.
 - Relay processes a batch and crashes mid-batch -> rows not marked `SENT` are reprocessed; consumers stay idempotent.
-- Weather API poll fails -> ingestion logs, skips, and retries on the next poll without crashing.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST ingest wind turbine telemetry (`turbineId`, `rpm`, `powerOutput`, `vibrationLevel`) via a command API and a simulated Kafka producer.
-- **FR-002**: System MUST ingest weather readings via scheduled external-API polling, converting them into internal events.
-- **FR-003**: System MUST ingest grid load (`region`, `demandMW`, `supplyMW`) from a simulated real-time feed.
-- **FR-004**: On every state-changing command, System MUST write the domain state change and an `outbox_events` row within a single database transaction, and MUST NOT publish to Kafka inside that transaction.
-- **FR-005**: A relay service MUST poll `outbox_events`, publish `PENDING` rows to Kafka with batching and retries, mark them `SENT`, and route exhausted failures to `dead-letter-events` (`FAILED`).
-- **FR-006**: Delivery to Kafka MUST be at-least-once; downstream consumers MUST be idempotent (dedupe by event id).
-- **FR-007**: System MUST join turbine, weather, and grid streams to produce `energy-state-events` containing `timestamp`, `region`, `totalWindPower`, `gridDemand`, `efficiencyScore`.
-- **FR-008**: System MUST detect anomalies (vibration spikes, turbine failure patterns, grid overload risk) and emit alerts to the `alerts` topic.
-- **FR-009**: System MUST produce optimization recommendations from the current energy state.
-- **FR-010**: System MUST expose command APIs (`POST /api/ingest/weather`, `/api/ingest/turbine`, `/api/ingest/grid`) and query APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`).
-- **FR-011**: System MUST push energy-state updates and alerts to clients over WebSocket.
-- **FR-012**: Read and write models MUST be separated (CQRS); commands MUST NOT serve reads and queries MUST NOT mutate state.
-- **FR-013**: System MUST persist turbine state, energy-state snapshots, alerts, and `outbox_events` in PostgreSQL, with schema managed by Flyway.
-- **FR-014**: System MUST emit structured JSON logs and propagate a correlation id across API -> DB -> outbox -> Kafka -> stream processing.
-- **FR-015**: Each deployable MUST expose health and metrics endpoints.
-- **FR-016**: The Blazor + Radzen UI MUST update reactively via WebSocket with no manual refresh.
+- **FR-001**: System MUST ingest wind turbine telemetry (`turbineId`, `rpm`, `powerOutput`, `vibrationLevel`) via a command API and a simulated producer.
+- **FR-002**: System MUST ingest grid load (`region`, `demandMW`, `supplyMW`) from a simulated real-time feed.
+- **FR-003**: On every state-changing command, System MUST write the domain state change and an `outbox_events` row within a single database transaction, and MUST NOT publish to Kafka inside that transaction.
+- **FR-004**: A relay service MUST poll `outbox_events`, publish `PENDING` rows to Kafka with batching and retries, mark them `SENT`, and route exhausted failures to `dead-letter-events` (`FAILED`).
+- **FR-005**: Delivery to Kafka MUST be at-least-once; downstream consumers MUST be idempotent (dedupe by event id).
+- **FR-006**: System MUST join turbine and grid streams to produce `energy-state-events` containing `timestamp`, `region`, `totalWindPower`, `gridDemand`, `efficiencyScore`.
+- **FR-007**: System MUST detect anomalies (vibration spikes, turbine failure patterns, grid overload risk) and emit alerts to the `alerts` topic.
+- **FR-008**: System MUST produce optimization recommendations from the current energy state.
+- **FR-009**: System MUST expose command APIs (`POST /api/ingest/turbine`, `/api/ingest/grid`) and query APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`).
+- **FR-010**: System MUST push energy-state updates and alerts to clients over WebSocket.
+- **FR-011**: Read and write models MUST be separated (CQRS); commands MUST NOT serve reads and queries MUST NOT mutate state.
+- **FR-012**: System MUST persist turbine state, energy-state snapshots, alerts, and `outbox_events` in PostgreSQL, with schema managed by Flyway.
+- **FR-013**: System MUST emit structured JSON logs and propagate a correlation id across API -> DB -> outbox -> Kafka -> stream processing.
+- **FR-014**: Each deployable MUST expose health and metrics endpoints.
+- **FR-015**: The Blazor + Radzen UI MUST update reactively via WebSocket with no manual refresh.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Turbine**: a wind turbine and its latest telemetry (`turbineId`, `rpm`, `powerOutput`, `vibrationLevel`, health status).
-- **WeatherReading**: environmental conditions for a location/region (wind speed, temperature, timestamp).
 - **GridLoad**: grid demand/supply for a region (`region`, `demandMW`, `supplyMW`, timestamp).
 - **EnergyState**: aggregated per-region state (`region`, `totalWindPower`, `gridDemand`, `efficiencyScore`, `timestamp`).
 - **Alert**: a detected condition (type, severity, source, timestamp, message).
@@ -160,7 +156,7 @@ per-turbine state; confirm the weather panel reflects the latest weather reading
 ## Assumptions
 
 - This is a portfolio/demonstration system; scale targets are local/single-node, not multi-region production load.
-- Data sources are simulated (turbine/grid producers) or polled from a free/public weather API; no real SCADA integration.
+- Data sources are simulated (turbine/grid producers); no real SCADA integration.
 - Kafka runs in KRaft mode (no ZooKeeper); a single broker is sufficient for the demo.
 - Stream processing is implemented with Apache Flink (or Flink-style semantics) on the JVM; "Flink-style" means real windowing/join/keyed-state semantics, not a literal port.
 - The UI is .NET 10 Blazor Server with Radzen, a separate process from the JVM backend, communicating over REST + WebSocket.

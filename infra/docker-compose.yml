@@ -3,7 +3,7 @@
 #
 # Two-part layout:
 #   - write-side: CQRS ingest APIs, PostgreSQL, outbox (the main backbone demo)
-#   - datasource: single thin producer (weather poll + turbine + grid simulators)
+#   - datasource: single thin producer (turbine + grid simulators)
 
 x-write-side-env: &write-side-env
   AETHER_DB_URL: jdbc:postgresql://postgres:5432/aetherstream
@@ -111,7 +111,7 @@ services:
     labels:
       aetherstream.role: write-side
 
-  # --- Data source (thin producer: weather poll + turbine + grid simulators) ---
+  # --- Data source (thin producer: turbine + grid simulators) ---
 
   datasource:
     build:

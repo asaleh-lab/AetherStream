@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (docker compose full-profile fixes on `fix/docker-compose-full-stack`)
+Last updated: 2026-06-06 (weather stack removed — two-stream pipeline)
 
 ## 1. What this project is
 
@@ -25,9 +25,9 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
 - GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
 - **Two-part service layout** (clarity for demos and onboarding):
-  1. **`datasource`** — one thin Spring Boot producer (no PostgreSQL, domain, or CQRS). Runs three
-     independent schedulers at real-world intervals: weather **GET poll** (~60s), turbine telemetry
-     (~5s), grid load (~15s). Each POSTs JSON to write-side.
+  1. **`datasource`** — one thin Spring Boot producer (no PostgreSQL, domain, or CQRS). Runs two
+     independent simulators at real-world intervals: turbine telemetry (~5s), grid load (~15s).
+     Each POSTs JSON to write-side.
   2. **Write-side backbone** (`write-side`, then `outbox-relay`, Flink jobs, `api-gateway`) —
      `application.yml`, structured logging, CQRS command bus, domain, JPA, transactional outbox,
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
@@ -48,9 +48,16 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `fix/docker-compose-full-stack` (docker compose deploy fixes; PR pending)  
+**Branch:** `refactor/remove-weather-stack` (weather removed; two-stream pipeline)  
 **Base:** `main` (Phase 6 merged — all 6 phases complete)  
 **Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+
+### Weather removal (2026-06-06)
+
+- [x] Removed weather poll producer, ingest CQRS path, `weather-events` topic wiring, Flink union branch
+- [x] Removed Weather UI page and nav item
+- [x] Pipeline is now **turbine + grid → Flink join → energy state + alerts → dashboard**
+- **Tradeoff:** Simpler demo (no unused third stream). Weather can be reintroduced later as a focused feature.
 
 ### Docker compose fixes (2026-06-05)
 
@@ -66,32 +73,14 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 ### Phase 6 — complete (merged PR #6)
 
 - [x] Blazor Server + Radzen dashboard wired to gateway REST + WebSocket
-- [x] Live energy cards, alerts panel, turbine DataGrid, regional weather/energy view
+- [x] Live energy cards, alerts panel, turbine DataGrid, regional energy view
 - [x] `blazor-dashboard` in [infra/docker-compose.yml](infra/docker-compose.yml) (`--profile full`, port 8086)
 - [x] Correlation-id propagation tests: outbox relay Kafka header + api-gateway consumer header
 - [x] Blazor `/health` endpoint; gateway connection status badges in UI
 
-### Verified (2026-06-05)
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.11_10"
-.\mvnw.cmd -pl services/api-gateway,services/outbox-relay -am test   # OK
-dotnet build ui/blazor-dashboard/AetherStream.Dashboard.csproj         # OK
-docker compose -f infra/docker-compose.yml config                      # OK
-docker compose -f infra/docker-compose.yml --profile full up -d --build  # OK (all healthy)
-docker compose -f infra/docker-compose.yml --profile full ps -a        # stream-processor Up
-```
-
-### Phase 3 — complete (merged PR #3)
-
-- [x] Outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka
-- [x] Retries across poll cycles; exhausted failures → `dead-letter-events` + `FAILED`
-- [x] `outbox-relay` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8084)
-- [x] Testcontainers integration test (Postgres + Kafka): outbox row → Kafka topic
-
 ### Phase 4 — complete (merged PR #4)
 
-- [x] Flink `stream-processor`: consume `turbine-events`, `weather-events`, `grid-events`
+- [x] Flink `stream-processor`: consume `turbine-events`, `grid-events`
 - [x] Keyed-by-region aggregation (Flink state): `totalWindPower`, `gridDemand`, `efficiencyScore`
   → `energy-state-events`
 - [x] Anomaly rules: vibration spike, turbine failure pattern, grid overload → `alerts`
@@ -116,7 +105,7 @@ docker compose -f infra/docker-compose.yml --profile full ps -a        # stream-
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Set **`JAVA_HOME`** to JDK 21 if `mvnw` fails (e.g. Amazon Corretto 21).
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
-- **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
+- **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{turbine|grid}`
 - **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
   `/api/turbines/{id}`
 - **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
@@ -124,7 +113,7 @@ docker compose -f infra/docker-compose.yml --profile full ps -a        # stream-
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
   `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
-- Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
+- Datasource intervals (defaults): turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
 - Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
 - Stream processor env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_VIBRATION_THRESHOLD` (default 1.0),
@@ -143,13 +132,12 @@ docker compose -f infra/docker-compose.yml --profile full ps -a        # stream-
 ## 6. Open items / blockers
 
 - All 6 phases merged to `main`.
-- `fix/docker-compose-full-stack` — open PR and merge docker compose deploy fixes.
 - `decision-engine` still skeleton (optimization recommendations — optional follow-up).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream Phase 6 is complete. Merge fix/docker-compose-full-stack if not on main yet.
+AetherStream Phase 6 is complete. Weather stack removed — two-stream pipeline (turbine + grid).
 Read HANDOFF.md for optional follow-ups (decision-engine).
 ```
 
@@ -175,5 +163,6 @@ feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
 feat(stream-processor): Flink aggregation join and anomaly detection  [PR #4 merged]
 feat(api-gateway): read-model projections, query APIs, and WebSocket push  [PR #5 merged]
 feat(blazor-dashboard): live UI wired to gateway REST and WebSocket  [PR #6 merged]
-fix(docker): restore full compose profile builds and stream-processor startup  [branch fix/docker-compose-full-stack]
+fix(docker): restore full compose profile builds and stream-processor startup  [PR merged]
+refactor: remove unused weather ingest pipeline and UI  [branch refactor/remove-weather-stack]
 ```

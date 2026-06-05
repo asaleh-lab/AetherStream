@@ -33,7 +33,7 @@ AetherStream/
   pom.xml                       # parent reactor
   services/
     write-side/                 # Spring Boot: ingest REST APIs, CQRS, domain, outbox, PostgreSQL
-    datasource/                 # Thin producer: weather GET poll + turbine + grid simulators -> POST write-side
+    datasource/                 # Thin producer: turbine + grid simulators -> POST write-side
     outbox-relay/               # Spring Boot: polls outbox_events -> Kafka, retries, DLQ
     stream-processor/           # Flink: aggregation join + anomaly detection
     decision-engine/            # Flink/consumer: optimization recommendations
@@ -58,8 +58,7 @@ Dependency direction (Clean Architecture): `domain` <- `application` <- `infrast
 
 ```mermaid
 flowchart LR
-  weatherApi[Weather API] --> datasource[datasource single producer]
-  turbineSim[Turbine simulator] --> datasource
+  turbineSim[Turbine simulator] --> datasource[datasource single producer]
   gridSim[Grid simulator] --> datasource
 
   datasource -->|HTTP POST| writeSide[write-side CQRS plus outbox]
@@ -84,7 +83,6 @@ flowchart LR
 
 | Topic | Key | Payload (summary) | Producer | Consumers |
 |---|---|---|---|---|
-| `weather-events` | region | weather reading | write-side (via relay) | stream-processor |
 | `turbine-events` | turbineId | turbine telemetry | write-side (via relay) | stream-processor |
 | `grid-events` | region | grid load | write-side (via relay) | stream-processor |
 | `energy-state-events` | region | aggregated energy state | stream-processor | api-gateway, decision-engine |
@@ -127,7 +125,7 @@ sequenceDiagram
 | Column | Type | Notes |
 |---|---|---|
 | id | UUID PK | also used as `eventId` for downstream dedupe |
-| aggregate_type | text | e.g. `Turbine`, `GridLoad`, `WeatherReading` |
+| aggregate_type | text | e.g. `Turbine`, `GridLoad` |
 | aggregate_id | text | entity id |
 | event_type | text | e.g. `TurbineTelemetryRecorded` |
 | payload | jsonb | event body |
@@ -159,7 +157,7 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 7. Stream processing topology (Flink)
 
-- **Aggregation job** (`stream-processor`): consume `turbine-events`, `weather-events`,
+- **Aggregation job** (`stream-processor`): consume `turbine-events` and
   `grid-events`; key by region; window (e.g. tumbling/sliding) and join to compute
   `totalWindPower`, `gridDemand`, `efficiencyScore`; emit `energy-state-events`.
 - **Anomaly job** (`stream-processor`): keyed rules over turbine and grid streams —
@@ -178,7 +176,7 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 9. API & real-time gateway
 
-- Command APIs (write, on **`write-side`**): `POST /api/ingest/weather`, `/api/ingest/turbine`,
+- Command APIs (write, on **`write-side`**): `POST /api/ingest/turbine`,
   `/api/ingest/grid`. The **`datasource`** service forwards readings to these endpoints; it
   does not expose ingest APIs itself.
 - Query APIs (read, on **`api-gateway`**, Phase 5 — **DONE**): `GET /api/energy/latest`, `/api/alerts`,
@@ -196,7 +194,7 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 ## 11. Local deployment
 
 `infra/docker-compose.yml` brings up the full backend pipeline: Kafka (KRaft), PostgreSQL 16,
-Kafka UI, **`write-side`** (CQRS + outbox + DB), **`datasource`** (weather poll + turbine/grid
+Kafka UI, **`write-side`** (CQRS + outbox + DB), **`datasource`** (turbine/grid
 simulators), **`outbox-relay`**, **`stream-processor`** (Flink aggregation + anomaly detection),
 and **`api-gateway`** (read-model projections, query APIs, WebSocket). Add compose profile
 `full` for **`blazor-dashboard`**. A one-shot `kafka-init` container applies topic creation

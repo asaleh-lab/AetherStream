@@ -40,10 +40,6 @@ public class EnergyAggregationFunction extends KeyedProcessFunction<String, Stre
         switch (event.kind()) {
             case TURBINE -> updateTurbine(event.turbine());
             case GRID -> gridDemandMw.update(event.grid().demandMW());
-            case WEATHER -> {
-                // Weather is not required for the energy-state snapshot in v1.
-            }
-            default -> throw new IllegalStateException("Unexpected event kind: " + event.kind());
         }
 
         emitIfReady(ctx.getCurrentKey(), out, event.eventTime());

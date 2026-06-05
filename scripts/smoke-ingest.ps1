@@ -20,7 +20,6 @@ Set-Location $RepoRoot
 
 $WriteSidePort = 8080
 $IngestTests = @(
-    @{ Path = "weather"; Body = '{"region":"north-sea","windSpeedMs":8.5,"temperatureC":12.3}' },
     @{ Path = "turbine"; Body = '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}' },
     @{ Path = "grid";    Body = '{"region":"north-sea","demandMW":1200,"supplyMW":1150}' }
 )

@@ -10,7 +10,6 @@ PARTITIONS="${PARTITIONS:-1}"
 REPLICAS="${REPLICAS:-1}"
 
 TOPICS=(
-  weather-events
   turbine-events
   grid-events
   energy-state-events
