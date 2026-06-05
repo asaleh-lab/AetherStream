@@ -32,9 +32,10 @@ Kafka consumer / Flink job; `MediatR` -> command/query bus; `EF Core` -> JPA/Hib
 AetherStream/
   pom.xml                       # parent reactor
   services/
-    ingestion-weather/          # Spring Boot: polls weather API -> command -> outbox
-    ingestion-turbine/          # Spring Boot: simulated turbine producer -> command -> outbox
-    ingestion-grid/             # Spring Boot: simulated grid feed -> command -> outbox
+    write-side/                 # Spring Boot: ingest REST APIs, CQRS, domain, outbox, PostgreSQL
+    datasource-weather/         # Thin producer: GET poll weather API -> POST write-side
+    datasource-turbine/         # Thin producer: simulated turbine telemetry -> POST write-side
+    datasource-grid/            # Thin producer: simulated grid feed -> POST write-side
     outbox-relay/               # Spring Boot: polls outbox_events -> Kafka, retries, DLQ
     stream-processor/           # Flink: aggregation join + anomaly detection
     decision-engine/            # Flink/consumer: optimization recommendations
@@ -59,13 +60,15 @@ Dependency direction (Clean Architecture): `domain` <- `application` <- `infrast
 
 ```mermaid
 flowchart LR
-  weatherApi[Weather API] --> ingWeather[ingestion-weather]
-  turbineSim[Turbine simulator] --> ingTurbine[ingestion-turbine]
-  gridSim[Grid simulator] --> ingGrid[ingestion-grid]
+  weatherApi[Weather API] --> dsWeather[datasource-weather]
+  turbineSim[Turbine simulator] --> dsTurbine[datasource-turbine]
+  gridSim[Grid simulator] --> dsGrid[datasource-grid]
 
-  ingWeather --> db[(PostgreSQL write model plus outbox)]
-  ingTurbine --> db
-  ingGrid --> db
+  dsWeather -->|HTTP POST| writeSide[write-side CQRS plus outbox]
+  dsTurbine -->|HTTP POST| writeSide
+  dsGrid -->|HTTP POST| writeSide
+
+  writeSide --> db[(PostgreSQL write model plus outbox)]
 
   db --> relay[outbox-relay]
   relay --> topics{{Kafka topics}}
@@ -85,9 +88,9 @@ flowchart LR
 
 | Topic | Key | Payload (summary) | Producer | Consumers |
 |---|---|---|---|---|
-| `weather-events` | region | weather reading | ingestion-weather (via relay) | stream-processor |
-| `turbine-events` | turbineId | turbine telemetry | ingestion-turbine (via relay) | stream-processor |
-| `grid-events` | region | grid load | ingestion-grid (via relay) | stream-processor |
+| `weather-events` | region | weather reading | write-side (via relay) | stream-processor |
+| `turbine-events` | turbineId | turbine telemetry | write-side (via relay) | stream-processor |
+| `grid-events` | region | grid load | write-side (via relay) | stream-processor |
 | `energy-state-events` | region | aggregated energy state | stream-processor | api-gateway, decision-engine |
 | `alerts` | region/turbineId | alert (type, severity) | stream-processor | api-gateway |
 | `dead-letter-events` | original key | failed event envelope | outbox-relay, consumers | ops/inspection |
@@ -103,7 +106,7 @@ within a partition. Local default: 1 partition, replication factor 1 (demo).
 
 ```mermaid
 sequenceDiagram
-  participant API as Ingestion API
+  participant API as Write-side ingest API
   participant H as Command Handler
   participant DB as PostgreSQL
   participant R as Outbox Relay

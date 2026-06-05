@@ -19,13 +19,26 @@ See [HANDOFF.md](HANDOFF.md) for cross-session state and [specs/001-aetherstream
 - **Stream processing (Flink-style)** — aggregation joins, anomaly detection, and a decision engine produce energy state, alerts, and recommendations.
 - **Real-time UI** — Blazor Server + Radzen dashboard consuming REST and WebSocket from the gateway.
 
+## Two-part layout
+
+The repo deliberately separates **producers** from the **backbone** so the demo story is easy to follow:
+
+| Part | Modules | Responsibility |
+|------|---------|----------------|
+| **Data sources** | `datasource-weather`, `datasource-turbine`, `datasource-grid` | Generate or poll data only. No DB, domain, or CQRS. POST JSON to write-side. Weather uses **GET polling** (external API has no push/stream). Turbine and grid use scheduled simulators. |
+| **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | `application.yml`, JSON logging, CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
+
+```text
+datasource-*  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Flink  -->  api-gateway  -->  UI
+```
+
 ## Repository layout
 
 ```text
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
-services/       ingestion-*, outbox-relay, api-gateway, stream-processor, decision-engine
+services/       write-side, datasource-*, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 8 + Radzen)
-infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, data sources)
+infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, data sources)
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -52,19 +65,20 @@ dotnet build ui/blazor-dashboard
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Brings up Postgres, Kafka, Kafka UI, and the three **data source** producers (weather,
-turbine telemetry, grid load). Flyway runs on startup — no manual schema setup.
+Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and three thin **data
+source** producers that forward readings automatically. Flyway runs on write-side startup.
 
 | Container | Role | Port |
 |-----------|------|------|
 | `aether-postgres` | Database | 5432 |
 | `aether-kafka` | Event backbone (host) | 9094 |
 | `aether-kafka-ui` | Topic browser | 8089 |
-| `aether-datasource-weather` | Weather feed producer | 8081 |
-| `aether-datasource-turbine` | Turbine telemetry producer | 8082 |
-| `aether-datasource-grid` | Grid load producer | 8083 |
+| `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
+| `aether-datasource-weather` | Weather poll producer | 8081 |
+| `aether-datasource-turbine` | Turbine telemetry simulator | 8082 |
+| `aether-datasource-grid` | Grid load simulator | 8083 |
 
-Smoke-test all ingest endpoints:
+Smoke-test write-side ingest endpoints:
 
 ```powershell
 .\scripts\smoke-ingest.ps1 -SkipCommit
@@ -73,7 +87,7 @@ Smoke-test all ingest endpoints:
 Or POST manually (example — turbine telemetry):
 
 ```powershell
-Invoke-RestMethod -Method POST -Uri http://localhost:8082/api/ingest/turbine `
+Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/ingest/turbine `
   -ContentType application/json `
   -Body '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}'
 ```
@@ -86,14 +100,14 @@ Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
 
 | Service | Port |
 |---------|------|
-| api-gateway | 8080 |
 | outbox-relay | 8084 |
+| api-gateway | 8085 (planned; was 8080 before write-side) |
 | Blazor dashboard | 5000 |
 
 ## Status
 
-**Phase 2 (write side + outbox)** is complete: CQRS command handlers, ingest REST APIs,
-transactional outbox writes, and the three data source containers in docker-compose.
+**Phase 2 (write side + outbox)** is complete with the two-part split: central **write-side**
+ingest APIs, transactional outbox, and thin **datasource-*** producers in docker-compose.
 **Phase 3** (outbox relay → Kafka) is next. Track progress in [HANDOFF.md](HANDOFF.md).
 
 ## License

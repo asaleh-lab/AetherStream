@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  Start data source containers, smoke-test ingest APIs, commit changes on success.
+  Start compose stack, smoke-test write-side ingest APIs, commit changes on success.
 
 .EXAMPLE
   .\scripts\smoke-ingest.ps1
@@ -18,45 +18,42 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $RepoRoot
 
-$DataSources = @(
-    @{ Name = "datasource-weather"; Port = 8081; Path = "weather"; Body = '{"region":"north-sea","windSpeedMs":8.5,"temperatureC":12.3}' },
-    @{ Name = "datasource-turbine"; Port = 8082; Path = "turbine"; Body = '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}' },
-    @{ Name = "datasource-grid";    Port = 8083; Path = "grid";    Body = '{"region":"north-sea","demandMW":1200,"supplyMW":1150}' }
+$WriteSidePort = 8080
+$IngestTests = @(
+    @{ Path = "weather"; Body = '{"region":"north-sea","windSpeedMs":8.5,"temperatureC":12.3}' },
+    @{ Path = "turbine"; Body = '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}' },
+    @{ Path = "grid";    Body = '{"region":"north-sea","demandMW":1200,"supplyMW":1150}' }
 )
 
-Write-Host ">> Free ports 8081-8083 (stop host listeners if any)"
-8081, 8082, 8083 | ForEach-Object {
+Write-Host ">> Free ports 8080-8083 (stop host listeners if any)"
+8080..8083 | ForEach-Object {
     Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 }
 
-Write-Host ">> Docker compose up (infra + data sources)"
+Write-Host ">> Docker compose up (infra + write-side + data sources)"
 docker compose -f infra/docker-compose.yml up -d --build | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
 
-Write-Host ">> Wait for health"
-$deadline = (Get-Date).AddSeconds(240)
+Write-Host ">> Wait for write-side health"
+$deadline = (Get-Date).AddSeconds(300)
 do {
-    $allUp = $true
-    foreach ($ds in $DataSources) {
-        try {
-            $h = Invoke-RestMethod "http://localhost:$($ds.Port)/actuator/health" -TimeoutSec 3
-            if ($h.status -ne "UP") { $allUp = $false; break }
-        } catch { $allUp = $false; break }
-    }
-    if ($allUp) { break }
-    if ((Get-Date) -ge $deadline) { throw "Data sources not healthy within 240s" }
+    try {
+        $h = Invoke-RestMethod "http://localhost:$WriteSidePort/actuator/health" -TimeoutSec 3
+        if ($h.status -eq "UP") { break }
+    } catch { }
+    if ((Get-Date) -ge $deadline) { throw "write-side not healthy within 300s" }
     Start-Sleep -Seconds 5
 } while ($true)
 
-Write-Host ">> Smoke tests"
-foreach ($ds in $DataSources) {
-    $uri = "http://localhost:$($ds.Port)/api/ingest/$($ds.Path)"
-    $r = Invoke-RestMethod -Method POST -Uri $uri -ContentType "application/json" -Body $ds.Body
+Write-Host ">> Smoke tests (write-side ingest API)"
+foreach ($test in $IngestTests) {
+    $uri = "http://localhost:$WriteSidePort/api/ingest/$($test.Path)"
+    $r = Invoke-RestMethod -Method POST -Uri $uri -ContentType "application/json" -Body $test.Body
     if (-not $r.eventId -or $r.status -ne "PENDING") {
-        throw "$($ds.Name) ingest failed: $($r | ConvertTo-Json -Compress)"
+        throw "ingest/$($test.Path) failed: $($r | ConvertTo-Json -Compress)"
     }
-    Write-Host "   OK $($ds.Name) eventId=$($r.eventId)"
+    Write-Host "   OK ingest/$($test.Path) eventId=$($r.eventId)"
 }
 
 if (-not $SkipCommit) {
