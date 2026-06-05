@@ -1,8 +1,14 @@
 using AetherStream.Dashboard.Components;
 using AetherStream.Dashboard.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "dataprotection-keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -10,6 +16,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton<DashboardState>();
+builder.Services.AddSingleton<DashboardDisplay>();
 builder.Services.AddSingleton<GatewayApiClient>();
 builder.Services.AddHostedService<DashboardBootstrapService>();
 builder.Services.AddHostedService<RealtimeConnectionService>();

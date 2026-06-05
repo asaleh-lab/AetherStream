@@ -1,7 +1,9 @@
 @page "/weather"
+@rendermode InteractiveServer
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Weather - AetherStream</PageTitle>
@@ -22,8 +24,8 @@
                 <RadzenText TextStyle="TextStyle.Overline">@region.Region</RadzenText>
                 <RadzenText TextStyle="TextStyle.H6">Wind contribution</RadzenText>
                 <RadzenText TextStyle="TextStyle.H3">@region.TotalWindPower.ToString("N0") kW</RadzenText>
-                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">
-                    Efficiency @((region.EfficiencyScore * 100).ToString("N0"))% · updated @region.Timestamp.ToLocalTime().ToString("g")
+                <RadzenText TextStyle="TextStyle.Caption">
+                    Efficiency @DashboardDisplay.FormatEfficiencyPercent(region.EfficiencyScore) · updated @Display.FormatTimestamp(region.Timestamp)
                 </RadzenText>
             </RadzenCard>
         </RadzenColumn>
@@ -32,7 +34,7 @@
 
 @if (_regions.Count == 0)
 {
-    <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+    <RadzenText TextStyle="TextStyle.Body2">
         No regional energy snapshots yet.
     </RadzenText>
 }

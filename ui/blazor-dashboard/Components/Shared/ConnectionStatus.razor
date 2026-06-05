@@ -2,12 +2,16 @@
 @inject DashboardState DashboardState
 @implements IDisposable
 
-<RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center" class="rz-mb-3">
-    <RadzenBadge BadgeStyle="@(_gatewayStyle)" Text="@(_gatewayLabel)" />
-    <RadzenBadge BadgeStyle="@(_realtimeStyle)" Text="@(_realtimeLabel)" />
+<RadzenStack Gap="0.75rem" class="rz-mb-3">
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center">
+        <RadzenBadge BadgeStyle="@(_gatewayStyle)" Text="@(_gatewayLabel)" />
+        <RadzenBadge BadgeStyle="@(_realtimeStyle)" Text="@(_realtimeLabel)" />
+    </RadzenStack>
     @if (!string.IsNullOrWhiteSpace(DashboardState.LastError))
     {
-        <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@DashboardState.LastError</RadzenText>
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter" AllowClose="false">
+            @DashboardState.LastError
+        </RadzenAlert>
     }
 </RadzenStack>
 

@@ -18,6 +18,8 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -56,6 +58,9 @@ class ApiGatewayProjectionIntegrationTest {
 
     @Autowired
     private AlertRepository alertRepository;
+
+    @Autowired
+    private TestRestTemplate restTemplate;
 
     @Test
     void kafkaConsumers_projectEnergyStateAndAlertsIntoReadModels() {
@@ -107,6 +112,10 @@ class ApiGatewayProjectionIntegrationTest {
         var alertEntity = alertRepository.findById(alertEventId).orElseThrow();
         assertThat(alertEntity.getType()).isEqualTo(AlertType.VIBRATION_SPIKE);
         assertThat(alertEntity.getSeverity()).isEqualTo(Severity.WARNING);
+
+        var response = restTemplate.getForEntity("/api/alerts?limit=10", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("T-001");
     }
 
     private KafkaTemplate<String, String> kafkaProducer() {

@@ -28,8 +28,9 @@ public class GridLoadSimulator {
     public void emitGridLoad() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         String region = REGIONS.get(random.nextInt(REGIONS.size()));
-        double demand = 400 + random.nextDouble(0, 200);
-        double supply = demand - 20 + random.nextDouble(0, 80);
+        // Scaled for the demo fleet (~2–4 MW wind) so efficiency scores are visible on the dashboard.
+        double demand = 3 + random.nextDouble(0, 5);
+        double supply = demand * (0.85 + random.nextDouble(0, 0.2));
         ingestClient.postGrid(new GridPayload(region, demand, supply));
         log.info("Forwarded simulated grid load for {} to write-side", region);
     }

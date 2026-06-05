@@ -195,26 +195,44 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 11. Local deployment
 
-`infra/docker-compose.yml` brings up Kafka (KRaft), PostgreSQL 16, Kafka UI, **`write-side`**
-(CQRS + outbox + DB), and **`datasource`** (single producer with weather poll + turbine/grid
-simulators). A one-shot init applies topic creation (`create-topics.sh`). Flyway runs on
-write-side startup.
+`infra/docker-compose.yml` brings up the full backend pipeline: Kafka (KRaft), PostgreSQL 16,
+Kafka UI, **`write-side`** (CQRS + outbox + DB), **`datasource`** (weather poll + turbine/grid
+simulators), **`outbox-relay`**, **`stream-processor`** (Flink aggregation + anomaly detection),
+and **`api-gateway`** (read-model projections, query APIs, WebSocket). Add compose profile
+`full` for **`blazor-dashboard`**. A one-shot `kafka-init` container applies topic creation
+(`create-topics.sh`) and exits 0. Flyway runs on write-side startup.
+
+```powershell
+# Backend only
+docker compose -f infra/docker-compose.yml up -d --build
+
+# Full demo with Blazor UI
+docker compose -f infra/docker-compose.yml --profile full up -d --build
+```
 
 | Service | Port | Role |
 |---------|------|------|
 | write-side | 8080 | Ingest APIs, CQRS, outbox, PostgreSQL |
 | datasource | 8081 | External feed simulator (POSTs to write-side) |
 | outbox-relay | 8084 | Outbox → Kafka relay |
+| stream-processor | — | Flink job (shaded jar, `java -jar`) |
 | api-gateway | 8085 | Query APIs + WebSocket push |
+| blazor-dashboard | 8086 | Blazor + Radzen UI (compose profile `full`) |
+
+**Docker build context:** `.dockerignore` excludes `ui/blazor-dashboard/bin` and `obj` but must
+include `ui/blazor-dashboard/` sources for the dashboard image. Flink shaded modules
+(`stream-processor`, `decision-engine`) declare `flink-connector-base` explicitly because
+`flink-connector-kafka` lists it as `provided` (intended for Flink cluster classpath, not
+standalone fat jars).
 
 ## 12. Phased delivery
 
 1. **Infra & skeleton** — **DONE**: monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
 2. **Write side + Outbox** — **DONE**: `write-side` ingest APIs, command handlers, domain persistence, transactional outbox writes; single `datasource` producer.
-3. Outbox relay (idempotent batched publish, retries, DLQ).
-4. Stream processing (aggregation join, anomaly detection, decision engine).
-5. Query side + real-time gateway (read-model projections, query APIs, WebSocket push) — **DONE**.
-6. Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
+3. **Outbox relay** — **DONE**: idempotent batched publish, retries, DLQ.
+4. **Stream processing** — **DONE**: aggregation join + anomaly detection (`stream-processor`); `decision-engine` skeleton deferred.
+5. **Query side + real-time gateway** — **DONE**: read-model projections, query APIs, WebSocket push.
+6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **DONE**.
 
 ## 13. Key decisions & trade-offs
 

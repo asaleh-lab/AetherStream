@@ -4,7 +4,9 @@ WORKDIR /src
 COPY ui/blazor-dashboard/AetherStream.Dashboard.csproj .
 RUN dotnet restore
 COPY ui/blazor-dashboard/ .
-RUN dotnet publish -c Release -o /app/publish --no-restore
+# Full publish (not --no-restore) so Blazor _framework assets land in wwwroot.
+RUN dotnet publish -c Release -o /app/publish \
+    && test -f /app/publish/wwwroot/_framework/blazor.web.js
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN apt-get update && apt-get install -y --no-install-recommends curl \

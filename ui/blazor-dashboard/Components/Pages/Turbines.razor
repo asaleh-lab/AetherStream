@@ -1,7 +1,9 @@
 @page "/turbines"
+@rendermode InteractiveServer
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Turbines - AetherStream</PageTitle>
@@ -11,7 +13,7 @@
 
 <RadzenDataGrid Data="@_rows" TItem="TurbineRow" AllowPaging="true" PageSize="10" Density="Density.Compact">
     <EmptyTemplate>
-        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+        <RadzenText TextStyle="TextStyle.Body2">
             No turbine telemetry yet — waiting for datasource feed.
         </RadzenText>
     </EmptyTemplate>
@@ -25,7 +27,11 @@
                 <RadzenBadge BadgeStyle="@row.HealthStyle" Text="@row.Health" />
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn Property="@nameof(TurbineRow.UpdatedAt)" Title="Updated" FormatString="{0:g}" />
+        <RadzenDataGridColumn Title="Updated">
+            <Template Context="row">
+                @Display.FormatTimestamp(row.UpdatedAt)
+            </Template>
+        </RadzenDataGridColumn>
     </Columns>
 </RadzenDataGrid>
 
@@ -53,7 +59,7 @@
                 t.VibrationLevel,
                 TurbineHealth.Evaluate(t.VibrationLevel),
                 TurbineHealth.BadgeStyleFor(t.VibrationLevel),
-                t.Timestamp.LocalDateTime))
+                t.Timestamp))
             .OrderBy(r => r.TurbineId)
             .ToList();
 
@@ -64,7 +70,7 @@
         double VibrationLevel,
         string Health,
         BadgeStyle HealthStyle,
-        DateTime UpdatedAt);
+        DateTimeOffset UpdatedAt);
 
     public void Dispose() => DashboardState.Changed -= OnStateChanged;
 }

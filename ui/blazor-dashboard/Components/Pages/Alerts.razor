@@ -1,7 +1,9 @@
 @page "/alerts"
+@rendermode InteractiveServer
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Alerts - AetherStream</PageTitle>
@@ -24,8 +26,8 @@ else
                 <RadzenBadge BadgeStyle="@AlertBadgeStyle.ForSeverity(alert.Severity)" Text="@alert.Severity" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@alert.Type" />
                 <RadzenText TextStyle="TextStyle.Body1">@alert.Message</RadzenText>
-                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">
-                    @alert.Source · @alert.Timestamp.ToLocalTime().ToString("g")
+                <RadzenText TextStyle="TextStyle.Caption">
+                    @alert.Source · @Display.FormatTimestamp(alert.Timestamp)
                 </RadzenText>
             </RadzenStack>
         </RadzenCard>

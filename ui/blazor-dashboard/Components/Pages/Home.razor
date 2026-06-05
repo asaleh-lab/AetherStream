@@ -1,7 +1,9 @@
 ﻿@page "/"
+@rendermode InteractiveServer
 @using AetherStream.Dashboard.Models
 @using AetherStream.Dashboard.Services
 @inject DashboardState DashboardState
+@inject DashboardDisplay Display
 @implements IDisposable
 
 <PageTitle>Dashboard - AetherStream</PageTitle>
@@ -33,8 +35,9 @@ else
         <RadzenColumn Size="12" SizeMD="4">
             <RadzenCard>
                 <RadzenText TextStyle="TextStyle.Overline">Efficiency</RadzenText>
-                <RadzenProgressBarCircular Value="@((int)(_primaryState.EfficiencyScore * 100))"
-                                           ShowValue="true"
+                <RadzenText TextStyle="TextStyle.H3">@DashboardDisplay.FormatEfficiencyPercent(_primaryState.EfficiencyScore)</RadzenText>
+                <RadzenProgressBarCircular Value="@DashboardDisplay.EfficiencyBarValue(_primaryState.EfficiencyScore)"
+                                           ShowValue="false"
                                            ProgressBarStyle="@EfficiencyStyle(_primaryState.EfficiencyScore)" />
             </RadzenCard>
         </RadzenColumn>
@@ -45,7 +48,7 @@ else
     <RadzenText TextStyle="TextStyle.H6">Regional grid load</RadzenText>
     @if (_chartData.Count == 0)
     {
-        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">No regional snapshots yet.</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2">No regional snapshots yet.</RadzenText>
     }
     else
     {

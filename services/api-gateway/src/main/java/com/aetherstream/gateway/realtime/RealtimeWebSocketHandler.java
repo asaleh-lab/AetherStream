@@ -12,7 +12,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-/** Broadcasts energy-state and alert updates to connected UI clients. */
+/** Broadcasts energy-state, turbine, and alert updates to connected UI clients. */
 @Component
 public class RealtimeWebSocketHandler extends TextWebSocketHandler {
 
@@ -41,10 +41,9 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         RealtimeMessage message = new RealtimeMessage(type, payload);
         try {
             String json = objectMapper.writeValueAsString(message);
-            TextMessage textMessage = new TextMessage(json);
             for (WebSocketSession session : sessions) {
                 if (session.isOpen()) {
-                    session.sendMessage(textMessage);
+                    session.sendMessage(new TextMessage(json));
                 }
             }
         } catch (IOException e) {
