@@ -1,7 +1,7 @@
-package com.aetherstream.datasource.weather.polling;
+package com.aetherstream.datasource.weather;
 
-import com.aetherstream.datasource.weather.client.WriteSideIngestClient;
-import com.aetherstream.datasource.weather.client.WriteSideIngestClient.WeatherPayload;
+import com.aetherstream.datasource.client.WriteSideIngestClient;
+import com.aetherstream.datasource.client.WriteSideIngestClient.WeatherPayload;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * Demonstrates pull-based ingestion: GET from an external weather API (no push/stream from
- * provider), then POST the reading to write-side. Falls back to simulated values when the API
- * is unreachable.
+ * Pull-based weather feed: GET from an external API on a slow interval (no push from provider),
+ * then POST the reading to write-side. Falls back to simulated values when the API is unreachable.
  */
 @Component
 @ConditionalOnProperty(name = "aetherstream.weather.polling.enabled", havingValue = "true", matchIfMissing = true)
@@ -49,7 +48,6 @@ public class WeatherPollingService {
 
     private WeatherPayload fetchReading() {
         try {
-            // Skeleton GET: open-meteo has no realtime push; we poll on an interval.
             weatherApiClient.get().uri(apiUrl).retrieve().toBodilessEntity();
         } catch (Exception e) {
             log.debug("Weather API GET failed ({}), using simulated reading", apiUrl);

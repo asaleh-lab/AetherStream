@@ -3,7 +3,7 @@
 #
 # Two-part layout:
 #   - write-side: CQRS ingest APIs, PostgreSQL, outbox (the main backbone demo)
-#   - datasource-*: thin producers (no DB/domain) that POST JSON to write-side
+#   - datasource: single thin producer (weather poll + turbine + grid simulators)
 
 x-write-side-env: &write-side-env
   AETHER_DB_URL: jdbc:postgresql://postgres:5432/aetherstream
@@ -111,17 +111,14 @@ services:
     labels:
       aetherstream.role: write-side
 
-  # --- Data sources (thin producers, no DB) ---
+  # --- Data source (thin producer: weather poll + turbine + grid simulators) ---
 
-  datasource-weather:
+  datasource:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.datasource
-      args:
-        SERVICE_MODULE: services/datasource-weather
-        SERVICE_ARTIFACT: datasource-weather
-    image: aetherstream/datasource-weather:local
-    container_name: aether-datasource-weather
+    image: aetherstream/datasource:local
+    container_name: aether-datasource
     depends_on:
       write-side:
         condition: service_healthy
@@ -138,61 +135,6 @@ services:
       start_period: 60s
     labels:
       aetherstream.role: datasource
-      aetherstream.stream: weather
-
-  datasource-turbine:
-    build:
-      context: ..
-      dockerfile: infra/docker/Dockerfile.datasource
-      args:
-        SERVICE_MODULE: services/datasource-turbine
-        SERVICE_ARTIFACT: datasource-turbine
-    image: aetherstream/datasource-turbine:local
-    container_name: aether-datasource-turbine
-    depends_on:
-      write-side:
-        condition: service_healthy
-    ports:
-      - "8082:8082"
-    environment:
-      <<: *datasource-env
-      SERVER_PORT: 8082
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
-    labels:
-      aetherstream.role: datasource
-      aetherstream.stream: turbine
-
-  datasource-grid:
-    build:
-      context: ..
-      dockerfile: infra/docker/Dockerfile.datasource
-      args:
-        SERVICE_MODULE: services/datasource-grid
-        SERVICE_ARTIFACT: datasource-grid
-    image: aetherstream/datasource-grid:local
-    container_name: aether-datasource-grid
-    depends_on:
-      write-side:
-        condition: service_healthy
-    ports:
-      - "8083:8083"
-    environment:
-      <<: *datasource-env
-      SERVER_PORT: 8083
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
-    labels:
-      aetherstream.role: datasource
-      aetherstream.stream: grid
 
 volumes:
   aether-pgdata:

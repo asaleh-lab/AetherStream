@@ -25,13 +25,13 @@ $IngestTests = @(
     @{ Path = "grid";    Body = '{"region":"north-sea","demandMW":1200,"supplyMW":1150}' }
 )
 
-Write-Host ">> Free ports 8080-8083 (stop host listeners if any)"
-8080..8083 | ForEach-Object {
+Write-Host ">> Free ports 8080-8081 (stop host listeners if any)"
+8080, 8081 | ForEach-Object {
     Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 }
 
-Write-Host ">> Docker compose up (infra + write-side + data sources)"
+Write-Host ">> Docker compose up (infra + write-side + datasource)"
 docker compose -f infra/docker-compose.yml up -d --build | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
 

@@ -17,9 +17,7 @@
         <module>core/application</module>
         <module>core/infrastructure</module>
         <module>services/write-side</module>
-        <module>services/datasource-weather</module>
-        <module>services/datasource-turbine</module>
-        <module>services/datasource-grid</module>
+        <module>services/datasource</module>
         <module>services/outbox-relay</module>
         <module>services/api-gateway</module>
         <module>services/stream-processor</module>

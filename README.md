@@ -25,20 +25,20 @@ The repo deliberately separates **producers** from the **backbone** so the demo 
 
 | Part | Modules | Responsibility |
 |------|---------|----------------|
-| **Data sources** | `datasource-weather`, `datasource-turbine`, `datasource-grid` | Generate or poll data only. No DB, domain, or CQRS. POST JSON to write-side. Weather uses **GET polling** (external API has no push/stream). Turbine and grid use scheduled simulators. |
+| **Data source** | `datasource` | One thin Spring Boot app simulating the outside world. No DB, domain, or CQRS. Three schedulers at real-world cadences POST JSON to write-side: weather **GET poll** (60s), turbine telemetry (5s), grid load (15s). |
 | **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | `application.yml`, JSON logging, CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
 
 ```text
-datasource-*  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Flink  -->  api-gateway  -->  UI
+datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Flink  -->  api-gateway  -->  UI
 ```
 
 ## Repository layout
 
 ```text
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
-services/       write-side, datasource-*, outbox-relay, api-gateway, stream-processor, decision-engine
+services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 8 + Radzen)
-infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, data sources)
+infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, datasource)
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -65,8 +65,8 @@ dotnet build ui/blazor-dashboard
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and three thin **data
-source** producers that forward readings automatically. Flyway runs on write-side startup.
+Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and **datasource**
+(auto-forwarding weather, turbine, and grid readings). Flyway runs on write-side startup.
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -74,9 +74,7 @@ source** producers that forward readings automatically. Flyway runs on write-sid
 | `aether-kafka` | Event backbone (host) | 9094 |
 | `aether-kafka-ui` | Topic browser | 8089 |
 | `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
-| `aether-datasource-weather` | Weather poll producer | 8081 |
-| `aether-datasource-turbine` | Turbine telemetry simulator | 8082 |
-| `aether-datasource-grid` | Grid load simulator | 8083 |
+| `aether-datasource` | External feed simulator | 8081 |
 
 Smoke-test write-side ingest endpoints:
 
@@ -106,8 +104,8 @@ Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
 
 ## Status
 
-**Phase 2 (write side + outbox)** is complete with the two-part split: central **write-side**
-ingest APIs, transactional outbox, and thin **datasource-*** producers in docker-compose.
+**Phase 2 (write side + outbox)** is complete: central **write-side** ingest APIs,
+transactional outbox, and a single **datasource** producer in docker-compose.
 **Phase 3** (outbox relay → Kafka) is next. Track progress in [HANDOFF.md](HANDOFF.md).
 
 ## License

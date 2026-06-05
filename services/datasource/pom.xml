@@ -11,9 +11,9 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>datasource-turbine</artifactId>
-    <name>AetherStream Service :: Datasource Turbine</name>
-    <description>Simulates turbine telemetry and forwards JSON to the write-side ingest API.</description>
+    <artifactId>datasource</artifactId>
+    <name>AetherStream Service :: Datasource</name>
+    <description>Simulates external feeds (weather poll, turbine telemetry, grid load) and POSTs JSON to write-side.</description>
 
     <dependencies>
         <dependency>
@@ -32,7 +32,7 @@
     </dependencies>
 
     <build>
-        <finalName>datasource-turbine</finalName>
+        <finalName>datasource</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

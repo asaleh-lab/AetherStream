@@ -1,7 +1,7 @@
-package com.aetherstream.datasource.grid.simulation;
+package com.aetherstream.datasource.grid;
 
-import com.aetherstream.datasource.grid.client.WriteSideIngestClient;
-import com.aetherstream.datasource.grid.client.WriteSideIngestClient.GridPayload;
+import com.aetherstream.datasource.client.WriteSideIngestClient;
+import com.aetherstream.datasource.client.WriteSideIngestClient.GridPayload;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
@@ -10,8 +10,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/** Slower grid load updates (operational/market cadence, not per-second telemetry). */
 @Component
-@ConditionalOnProperty(name = "aetherstream.simulation.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "aetherstream.grid.simulation.enabled", havingValue = "true", matchIfMissing = true)
 public class GridLoadSimulator {
 
     private static final Logger log = LoggerFactory.getLogger(GridLoadSimulator.class);
@@ -23,7 +24,7 @@ public class GridLoadSimulator {
         this.ingestClient = ingestClient;
     }
 
-    @Scheduled(fixedDelayString = "${aetherstream.simulation.interval-ms:5000}")
+    @Scheduled(fixedDelayString = "${aetherstream.grid.interval-ms:15000}")
     public void emitGridLoad() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         String region = REGIONS.get(random.nextInt(REGIONS.size()));

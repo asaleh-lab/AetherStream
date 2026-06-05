@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (end of session 5 — **two-part architecture refactor**)
+Last updated: 2026-06-05 (end of session 6 — **single datasource service**)
 
 ## 1. What this project is
 
@@ -25,20 +25,20 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
 - GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
 - **Two-part service layout** (clarity for demos and onboarding):
-  1. **Data sources** (`datasource-weather|turbine|grid`) — thin Spring Boot producers only.
-     No PostgreSQL, no domain models, no CQRS. Turbine/grid simulate streaming telemetry;
-     weather **polls** an external API (GET, no realtime push) and forwards JSON via HTTP POST.
+  1. **`datasource`** — one thin Spring Boot producer (no PostgreSQL, domain, or CQRS). Runs three
+     independent schedulers at real-world intervals: weather **GET poll** (~60s), turbine telemetry
+     (~5s), grid load (~15s). Each POSTs JSON to write-side.
   2. **Write-side backbone** (`write-side`, then `outbox-relay`, Flink jobs, `api-gateway`) —
      `application.yml`, structured logging, CQRS command bus, domain, JPA, transactional outbox,
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
 - **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
-  **write-side** + three **data source** containers. Reviewers need Docker only.
+  **write-side** + **datasource**. Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
 1. **Infra & skeleton** — **DONE** (PR #1).
 2. **Write side + Outbox** — **DONE**. Central `write-side` ingest APIs, command handlers,
-   domain persistence, transactional outbox writes; thin `datasource-*` producers.
+   domain persistence, transactional outbox writes; single `datasource` producer.
 3. **Outbox relay** — idempotent batched publish, retries, DLQ.
 4. **Stream processing (Flink)** — aggregation join, anomaly detection, decision engine.
 5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
@@ -54,8 +54,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] CQRS command bus, ingest handlers, outbox writes (on **write-side**)
 - [x] Testcontainers write-side integration test
 - [x] Correlation ID filter
-- [x] **Thin data sources**: `datasource-weather`, `datasource-turbine`, `datasource-grid`
-  POST to write-side; no DB/domain/CQRS in datasource modules
+- [x] **Single `datasource` service** — weather poll + turbine + grid simulators POST to write-side
 - [x] **write-side** in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8080)
 - [x] [scripts/smoke-ingest.ps1](scripts/smoke-ingest.ps1) — compose up + POST to write-side
 
@@ -88,13 +87,13 @@ docker compose -f infra/docker-compose.yml config # OK
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
-- **Compose service names**: `write-side` (8080), `datasource-weather` (8081),
-  `datasource-turbine` (8082), `datasource-grid` (8083).
-- Data sources env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
+- **Compose services**: `write-side` (8080), `datasource` (8081).
+- Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
+- Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
+  `services/datasource/src/main/resources/application.yml`.
 - Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
-- Data sources auto-produce in compose (simulators + weather polling enabled by default).
 - First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
-- Stop host Java processes before compose if ports 8080–8083 are already taken.
+- Stop host Java processes before compose if ports 8080–8081 are already taken.
 
 ## 6. Open items / blockers
 
@@ -120,4 +119,5 @@ test(infra): add Testcontainers write-side outbox integration test
 docs: update HANDOFF for Phase 2 completion
 infra(docker): containerize weather/turbine/grid data sources in compose
 refactor(services): split thin datasource producers from write-side backbone
+refactor(services): merge datasource feeds into single service with distinct intervals
 ```

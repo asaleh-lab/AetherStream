@@ -1,7 +1,7 @@
-package com.aetherstream.datasource.turbine.simulation;
+package com.aetherstream.datasource.turbine;
 
-import com.aetherstream.datasource.turbine.client.WriteSideIngestClient;
-import com.aetherstream.datasource.turbine.client.WriteSideIngestClient.TurbinePayload;
+import com.aetherstream.datasource.client.WriteSideIngestClient;
+import com.aetherstream.datasource.client.WriteSideIngestClient.TurbinePayload;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
@@ -10,8 +10,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/** High-frequency turbine telemetry simulator (typical SCADA-style cadence). */
 @Component
-@ConditionalOnProperty(name = "aetherstream.simulation.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "aetherstream.turbine.simulation.enabled", havingValue = "true", matchIfMissing = true)
 public class TurbineTelemetrySimulator {
 
     private static final Logger log = LoggerFactory.getLogger(TurbineTelemetrySimulator.class);
@@ -23,7 +24,7 @@ public class TurbineTelemetrySimulator {
         this.ingestClient = ingestClient;
     }
 
-    @Scheduled(fixedDelayString = "${aetherstream.simulation.interval-ms:5000}")
+    @Scheduled(fixedDelayString = "${aetherstream.turbine.interval-ms:5000}")
     public void emitTelemetry() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         String turbineId = TURBINE_IDS.get(random.nextInt(TURBINE_IDS.size()));

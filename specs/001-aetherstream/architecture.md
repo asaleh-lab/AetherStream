@@ -33,9 +33,7 @@ AetherStream/
   pom.xml                       # parent reactor
   services/
     write-side/                 # Spring Boot: ingest REST APIs, CQRS, domain, outbox, PostgreSQL
-    datasource-weather/         # Thin producer: GET poll weather API -> POST write-side
-    datasource-turbine/         # Thin producer: simulated turbine telemetry -> POST write-side
-    datasource-grid/            # Thin producer: simulated grid feed -> POST write-side
+    datasource/                 # Thin producer: weather GET poll + turbine + grid simulators -> POST write-side
     outbox-relay/               # Spring Boot: polls outbox_events -> Kafka, retries, DLQ
     stream-processor/           # Flink: aggregation join + anomaly detection
     decision-engine/            # Flink/consumer: optimization recommendations
@@ -60,13 +58,11 @@ Dependency direction (Clean Architecture): `domain` <- `application` <- `infrast
 
 ```mermaid
 flowchart LR
-  weatherApi[Weather API] --> dsWeather[datasource-weather]
-  turbineSim[Turbine simulator] --> dsTurbine[datasource-turbine]
-  gridSim[Grid simulator] --> dsGrid[datasource-grid]
+  weatherApi[Weather API] --> datasource[datasource single producer]
+  turbineSim[Turbine simulator] --> datasource
+  gridSim[Grid simulator] --> datasource
 
-  dsWeather -->|HTTP POST| writeSide[write-side CQRS plus outbox]
-  dsTurbine -->|HTTP POST| writeSide
-  dsGrid -->|HTTP POST| writeSide
+  datasource -->|HTTP POST| writeSide[write-side CQRS plus outbox]
 
   writeSide --> db[(PostgreSQL write model plus outbox)]
 
