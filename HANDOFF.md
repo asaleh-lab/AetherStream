@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (end of session 6 — **single datasource service**)
+Last updated: 2026-06-05 (Phase 2 cleanup audit — single datasource, docs synced)
 
 ## 1. What this project is
 
@@ -120,4 +120,6 @@ docs: update HANDOFF for Phase 2 completion
 infra(docker): containerize weather/turbine/grid data sources in compose
 refactor(services): split thin datasource producers from write-side backbone
 refactor(services): merge datasource feeds into single service with distinct intervals
+fix(docker): copy core modules for datasource Maven reactor
+docs: sync architecture and handoff for Phase 2 cleanup audit
 ```

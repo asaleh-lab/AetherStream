@@ -148,9 +148,10 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 6. CQRS
 
-- **Write side**: ingestion services receive commands (REST or simulated), validate domain
-  rules in `core/application` handlers dispatched via a `CommandBus`, persist write-model
-  state, and insert outbox rows in the same transaction.
+- **Write side**: the **`write-side`** service exposes ingest REST APIs; the thin **`datasource`**
+  service POSTs simulated/polled readings. Handlers in `core/application` (via `CommandBus`)
+  validate domain rules, persist write-model state where applicable, and insert outbox rows
+  in the same transaction.
 - **Read side**: `api-gateway` serves queries via a `QueryBus` against read-model
   projections (`energy_state_snapshot`, `alerts`, `turbine_state`) updated from Kafka.
 - Buses are thin interfaces (`CommandBus`, `QueryBus`, `CommandHandler<C>`,
@@ -177,8 +178,11 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 9. API & real-time gateway
 
-- Command APIs (write): `POST /api/ingest/weather`, `/api/ingest/turbine`, `/api/ingest/grid`.
-- Query APIs (read): `GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`.
+- Command APIs (write, on **`write-side`**): `POST /api/ingest/weather`, `/api/ingest/turbine`,
+  `/api/ingest/grid`. The **`datasource`** service forwards readings to these endpoints; it
+  does not expose ingest APIs itself.
+- Query APIs (read, on **`api-gateway`**, Phase 5): `GET /api/energy/latest`, `/api/alerts`,
+  `/api/turbines/{id}`.
 - WebSocket: gateway pushes energy-state updates and alerts to the Blazor UI.
 
 ## 10. Observability
@@ -191,13 +195,20 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 11. Local deployment
 
-`infra/docker-compose.yml` brings up Kafka (KRaft), PostgreSQL 16, and a Kafka UI; a
-one-shot init applies topic creation (`create-topics.sh`). Flyway runs on service startup.
+`infra/docker-compose.yml` brings up Kafka (KRaft), PostgreSQL 16, Kafka UI, **`write-side`**
+(CQRS + outbox + DB), and **`datasource`** (single producer with weather poll + turbine/grid
+simulators). A one-shot init applies topic creation (`create-topics.sh`). Flyway runs on
+write-side startup.
+
+| Service | Port | Role |
+|---------|------|------|
+| write-side | 8080 | Ingest APIs, CQRS, outbox, PostgreSQL |
+| datasource | 8081 | External feed simulator (POSTs to write-side) |
 
 ## 12. Phased delivery
 
-1. **Infra & skeleton** (current): monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
-2. Write side + Outbox (command handlers, domain persistence, transactional outbox writes).
+1. **Infra & skeleton** — **DONE**: monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
+2. **Write side + Outbox** — **DONE**: `write-side` ingest APIs, command handlers, domain persistence, transactional outbox writes; single `datasource` producer.
 3. Outbox relay (idempotent batched publish, retries, DLQ).
 4. Stream processing (aggregation join, anomaly detection, decision engine).
 5. Query side + real-time gateway (read-model projections, query APIs, WebSocket push).

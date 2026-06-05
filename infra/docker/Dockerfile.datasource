@@ -7,9 +7,8 @@ COPY mvnw pom.xml ./
 COPY .mvn .mvn
 COPY core core
 COPY services services
-ARG SERVICE_MODULE=services/datasource
 RUN chmod +x mvnw \
-    && ./mvnw -pl "${SERVICE_MODULE}" package -DskipTests -q
+    && ./mvnw -pl services/datasource package -DskipTests -q
 
 FROM eclipse-temurin:21-jre-alpine
 RUN apk add --no-cache curl
