@@ -16,7 +16,11 @@
         <module>core/domain</module>
         <module>core/application</module>
         <module>core/infrastructure</module>
-        <!-- services/* registered in the services commit -->
+        <module>services/ingestion-weather</module>
+        <module>services/ingestion-turbine</module>
+        <module>services/ingestion-grid</module>
+        <module>services/outbox-relay</module>
+        <module>services/api-gateway</module>
         <!-- stream-processor and decision-engine registered in the Flink commit -->
     </modules>
 
