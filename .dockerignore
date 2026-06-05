@@ -4,7 +4,8 @@
 .specify
 .local
 **/target
-ui
+ui/blazor-dashboard/bin
+ui/blazor-dashboard/obj
 **/*.md
 !infra/**
 .mvn/wrapper/maven-wrapper.jar
