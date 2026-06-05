@@ -1,24 +1,70 @@
 @page "/turbines"
+@using AetherStream.Dashboard.Models
+@using AetherStream.Dashboard.Services
+@inject DashboardState DashboardState
+@implements IDisposable
 
 <PageTitle>Turbines - AetherStream</PageTitle>
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Turbine monitoring</RadzenText>
-<RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4 rz-color-secondary">
-    Turbine health and vibration indicators. DataGrid will bind to GET /api/turbines once the query side is live.
-</RadzenText>
+<ConnectionStatus />
 
-<RadzenDataGrid Data="@_turbines" TItem="TurbineRow" AllowPaging="true" PageSize="10">
+<RadzenDataGrid Data="@_rows" TItem="TurbineRow" AllowPaging="true" PageSize="10" Density="Density.Compact">
+    <EmptyTemplate>
+        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+            No turbine telemetry yet — waiting for datasource feed.
+        </RadzenText>
+    </EmptyTemplate>
     <Columns>
         <RadzenDataGridColumn Property="@nameof(TurbineRow.TurbineId)" Title="Turbine" />
-        <RadzenDataGridColumn Property="@nameof(TurbineRow.Rpm)" Title="RPM" />
-        <RadzenDataGridColumn Property="@nameof(TurbineRow.PowerOutput)" Title="Power (kW)" />
-        <RadzenDataGridColumn Property="@nameof(TurbineRow.VibrationLevel)" Title="Vibration" />
-        <RadzenDataGridColumn Property="@nameof(TurbineRow.Health)" Title="Health" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.Rpm)" Title="RPM" FormatString="{0:N1}" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.PowerOutput)" Title="Power (kW)" FormatString="{0:N0}" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.VibrationLevel)" Title="Vibration" FormatString="{0:N2}" />
+        <RadzenDataGridColumn Title="Health">
+            <Template Context="row">
+                <RadzenBadge BadgeStyle="@row.HealthStyle" Text="@row.Health" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.UpdatedAt)" Title="Updated" FormatString="{0:g}" />
     </Columns>
 </RadzenDataGrid>
 
 @code {
-    private readonly List<TurbineRow> _turbines = [];
+    private List<TurbineRow> _rows = [];
 
-    private sealed record TurbineRow(string TurbineId, double Rpm, double PowerOutput, double VibrationLevel, string Health);
+    protected override void OnInitialized()
+    {
+        DashboardState.Changed += OnStateChanged;
+        Refresh();
+    }
+
+    private void OnStateChanged() => InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private void Refresh() =>
+        _rows = DashboardState.Turbines
+            .Select(t => new TurbineRow(
+                t.TurbineId,
+                t.Rpm,
+                t.PowerOutput,
+                t.VibrationLevel,
+                TurbineHealth.Evaluate(t.VibrationLevel),
+                TurbineHealth.BadgeStyleFor(t.VibrationLevel),
+                t.Timestamp.LocalDateTime))
+            .OrderBy(r => r.TurbineId)
+            .ToList();
+
+    private sealed record TurbineRow(
+        string TurbineId,
+        double Rpm,
+        double PowerOutput,
+        double VibrationLevel,
+        string Health,
+        BadgeStyle HealthStyle,
+        DateTime UpdatedAt);
+
+    public void Dispose() => DashboardState.Changed -= OnStateChanged;
 }

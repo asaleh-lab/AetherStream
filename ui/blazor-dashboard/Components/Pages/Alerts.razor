@@ -1,15 +1,53 @@
 @page "/alerts"
+@using AetherStream.Dashboard.Models
+@using AetherStream.Dashboard.Services
+@inject DashboardState DashboardState
+@implements IDisposable
 
 <PageTitle>Alerts - AetherStream</PageTitle>
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Alerts</RadzenText>
-<RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4 rz-color-secondary">
-    Real-time alerts with severity styling. WebSocket push arrives in Phase 5.
-</RadzenText>
+<ConnectionStatus />
 
-<RadzenCard class="rz-mb-2">
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="INFO" />
-        <RadzenText>No alerts yet — pipeline skeleton only.</RadzenText>
-    </RadzenStack>
-</RadzenCard>
+@if (_alerts.Count == 0)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Success" Shade="Shade.Lighter">
+        No alerts — anomaly stream is quiet.
+    </RadzenAlert>
+}
+else
+{
+    @foreach (var alert in _alerts)
+    {
+        <RadzenCard class="rz-mb-2">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <RadzenBadge BadgeStyle="@AlertBadgeStyle.ForSeverity(alert.Severity)" Text="@alert.Severity" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@alert.Type" />
+                <RadzenText TextStyle="TextStyle.Body1">@alert.Message</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">
+                    @alert.Source · @alert.Timestamp.ToLocalTime().ToString("g")
+                </RadzenText>
+            </RadzenStack>
+        </RadzenCard>
+    }
+}
+
+@code {
+    private IReadOnlyList<AlertDto> _alerts = [];
+
+    protected override void OnInitialized()
+    {
+        DashboardState.Changed += OnStateChanged;
+        Refresh();
+    }
+
+    private void OnStateChanged() => InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private void Refresh() => _alerts = DashboardState.Alerts;
+
+    public void Dispose() => DashboardState.Changed -= OnStateChanged;
+}

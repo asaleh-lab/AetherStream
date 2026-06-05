@@ -109,5 +109,10 @@ class OutboxRelayIntegrationTest {
         assertThat(record.key()).isEqualTo("T-RELAY-001");
         assertThat(record.value()).contains(correlationId);
         assertThat(record.value()).contains("T-RELAY-001");
+
+        var correlationHeader = record.headers().lastHeader("X-Correlation-Id");
+        assertThat(correlationHeader).isNotNull();
+        assertThat(new String(correlationHeader.value(), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo(correlationId);
     }
 }

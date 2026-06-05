@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 5 merged — PR #5; start Phase 6)
+Last updated: 2026-06-05 (Phase 6 merged — PR #6; platform complete)
 
 ## 1. What this project is
 
@@ -33,7 +33,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
 - **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
   **write-side** + **datasource** + **outbox-relay** + **stream-processor** + **api-gateway**.
-  Reviewers need Docker only.
+  Add `--profile full` for the **Blazor dashboard** (port 8086). Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
@@ -44,12 +44,29 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
    `decision-engine` still skeleton (defer or fold into later phase).
 5. **Query side + real-time gateway** — **DONE** (PR #5). Read-model Kafka consumers,
    query REST APIs, WebSocket push, compose service.
-6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **NEXT**.
+6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **DONE** (PR #6).
 
 ## 4. Current status
 
-**Branch:** `main` (Phase 5 merged)  
-**Next branch:** `phase-6/blazor-ui` (or similar)
+**Branch:** `main` (Phase 6 merged — all 6 phases complete)  
+**Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+
+### Phase 6 — complete (merged PR #6)
+
+- [x] Blazor Server + Radzen dashboard wired to gateway REST + WebSocket
+- [x] Live energy cards, alerts panel, turbine DataGrid, regional weather/energy view
+- [x] `blazor-dashboard` in [infra/docker-compose.yml](infra/docker-compose.yml) (`--profile full`, port 8086)
+- [x] Correlation-id propagation tests: outbox relay Kafka header + api-gateway consumer header
+- [x] Blazor `/health` endpoint; gateway connection status badges in UI
+
+### Verified (2026-06-05)
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.11_10"
+.\mvnw.cmd -pl services/api-gateway,services/outbox-relay -am test   # OK
+dotnet build ui/blazor-dashboard/AetherStream.Dashboard.csproj         # OK
+docker compose -f infra/docker-compose.yml config                      # OK
+```
 
 ### Phase 3 — complete (merged PR #3)
 
@@ -79,29 +96,6 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] `api-gateway` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8085)
 - [x] Testcontainers integration test: Kafka event → read-model projection
 
-### Verified (2026-06-05)
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.11_10"
-.\mvnw.cmd -pl services/api-gateway -am test   # OK (projection integration test)
-docker compose -f infra/docker-compose.yml config    # OK
-```
-
-### Phase 6 — start here
-
-1. Scaffold .NET 10 Blazor Server + Radzen dashboard in `ui/blazor-dashboard`.
-2. Wire REST (`/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`) and WebSocket
-   (`/ws/realtime`) to live UI components.
-3. Add Blazor UI to docker-compose (optional profile `full`).
-4. Expand Testcontainers coverage and correlation-id propagation end-to-end.
-
-**Do not** skip observability: health/metrics endpoints must stay exposed on all deployables.
-
-### Later compose work (natural follow-on)
-
-- `decision-engine`, Blazor UI — add to compose as Phase 6 lands.
-- Optional compose **profile** `full` when all services are containerized (SC-004).
-
 ## 5. Environment notes / gotchas
 
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
@@ -112,8 +106,9 @@ docker compose -f infra/docker-compose.yml config    # OK
 - **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
   `/api/turbines/{id}`
 - **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
+- **Blazor UI**: `http://localhost:8086` (compose `--profile full`) or `dotnet run --project ui/blazor-dashboard`
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
-  `api-gateway` (8085), `stream-processor` (Flink job, no HTTP port).
+  `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
@@ -122,20 +117,17 @@ docker compose -f infra/docker-compose.yml config    # OK
   `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
 - Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
 - First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
-- Stop host Java processes before compose if ports 8080–8081 or 8085 are already taken.
+- Stop host Java processes before compose if ports 8080–8081 or 8085–8086 are already taken.
 
 ## 6. Open items / blockers
 
-- Phase 5 PR #5 merged to `main`.
-- Phase 6 (Blazor UI) not yet started.
-- `decision-engine` still skeleton (optimization recommendations — defer or Phase 4 follow-up).
+- All 6 phases merged to `main`.
+- `decision-engine` still skeleton (optimization recommendations — optional follow-up).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 6 (Blazor UI live).
-Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-At the end of the session: commit, open Phase 6 PR, and merge right away.
+AetherStream Phase 6 is complete. Read HANDOFF.md for optional follow-ups (decision-engine).
 ```
 
 ## 8. Recent commits (chronological)
@@ -159,4 +151,5 @@ docs: update HANDOFF for Phase 3 outbox relay
 feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
 feat(stream-processor): Flink aggregation join and anomaly detection  [PR #4 merged]
 feat(api-gateway): read-model projections, query APIs, and WebSocket push  [PR #5 merged]
+feat(blazor-dashboard): live UI wired to gateway REST and WebSocket  [PR #6 merged]
 ```

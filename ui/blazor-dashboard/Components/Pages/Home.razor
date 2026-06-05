@@ -1,36 +1,96 @@
 ﻿@page "/"
+@using AetherStream.Dashboard.Models
+@using AetherStream.Dashboard.Services
+@inject DashboardState DashboardState
+@implements IDisposable
 
 <PageTitle>Dashboard - AetherStream</PageTitle>
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Energy overview</RadzenText>
-<RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4 rz-color-secondary">
-    Live data will stream here via WebSocket once the query gateway is wired (Phase 5).
-</RadzenText>
+<ConnectionStatus />
 
-<RadzenRow Gap="1rem" class="rz-mb-4">
-    <RadzenColumn Size="12" SizeMD="4">
-        <RadzenCard>
-            <RadzenText TextStyle="TextStyle.Overline">Total wind power</RadzenText>
-            <RadzenText TextStyle="TextStyle.H3">— kW</RadzenText>
-        </RadzenCard>
-    </RadzenColumn>
-    <RadzenColumn Size="12" SizeMD="4">
-        <RadzenCard>
-            <RadzenText TextStyle="TextStyle.Overline">Grid demand</RadzenText>
-            <RadzenText TextStyle="TextStyle.H3">— MW</RadzenText>
-        </RadzenCard>
-    </RadzenColumn>
-    <RadzenColumn Size="12" SizeMD="4">
-        <RadzenCard>
-            <RadzenText TextStyle="TextStyle.Overline">Efficiency</RadzenText>
-            <RadzenProgressBarCircular Value="0" ShowValue="true" ProgressBarStyle="ProgressBarStyle.Success" />
-        </RadzenCard>
-    </RadzenColumn>
-</RadzenRow>
+@if (_primaryState is null)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter" class="rz-mb-4">
+        Waiting for energy-state data. Start the backend stack and datasource feed.
+    </RadzenAlert>
+}
+else
+{
+    <RadzenRow Gap="1rem" class="rz-mb-4">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.Overline">Total wind power (@_primaryState.Region)</RadzenText>
+                <RadzenText TextStyle="TextStyle.H3">@_primaryState.TotalWindPower.ToString("N0") kW</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.Overline">Grid demand</RadzenText>
+                <RadzenText TextStyle="TextStyle.H3">@_primaryState.GridDemand.ToString("N0") MW</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.Overline">Efficiency</RadzenText>
+                <RadzenProgressBarCircular Value="@((int)(_primaryState.EfficiencyScore * 100))"
+                                           ShowValue="true"
+                                           ProgressBarStyle="@EfficiencyStyle(_primaryState.EfficiencyScore)" />
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+}
 
 <RadzenCard>
-    <RadzenText TextStyle="TextStyle.H6">Grid load</RadzenText>
-    <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
-        Chart placeholder — Radzen chart will bind to live energy-state events.
-    </RadzenText>
+    <RadzenText TextStyle="TextStyle.H6">Regional grid load</RadzenText>
+    @if (_chartData.Count == 0)
+    {
+        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">No regional snapshots yet.</RadzenText>
+    }
+    else
+    {
+        <RadzenChart>
+            <RadzenColumnSeries Data="@_chartData" CategoryProperty="Region" ValueProperty="GridDemand" Title="Demand (MW)" />
+            <RadzenColumnSeries Data="@_chartData" CategoryProperty="Region" ValueProperty="TotalWindPower" Title="Wind (kW)" />
+            <RadzenCategoryAxis Padding="20" />
+            <RadzenValueAxis>
+                <RadzenGridLines Visible="true" />
+            </RadzenValueAxis>
+        </RadzenChart>
+    }
 </RadzenCard>
+
+@code {
+    private EnergyStateDto? _primaryState;
+    private List<RegionChartPoint> _chartData = [];
+
+    protected override void OnInitialized()
+    {
+        DashboardState.Changed += OnStateChanged;
+        Refresh();
+    }
+
+    private void OnStateChanged() => InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private void Refresh()
+    {
+        var states = DashboardState.EnergyStates;
+        _primaryState = states.OrderByDescending(s => s.Timestamp).FirstOrDefault();
+        _chartData = states
+            .Select(s => new RegionChartPoint(s.Region, s.GridDemand, s.TotalWindPower))
+            .ToList();
+    }
+
+    private static ProgressBarStyle EfficiencyStyle(double score) =>
+        score >= 0.85 ? ProgressBarStyle.Success
+        : score >= 0.6 ? ProgressBarStyle.Warning
+        : ProgressBarStyle.Danger;
+
+    private sealed record RegionChartPoint(string Region, double GridDemand, double TotalWindPower);
+
+    public void Dispose() => DashboardState.Changed -= OnStateChanged;
+}
