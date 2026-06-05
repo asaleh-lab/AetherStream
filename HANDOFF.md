@@ -83,6 +83,7 @@ dotnet build ui/blazor-dashboard        # OK
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - Blazor template is **`dotnet new blazor --interactivity Server`** (not legacy `blazorserver`).
 - Service ports: gateway 8080, weather 8081, turbine 8082, grid 8083, relay 8084, kafka-ui 8089.
+- Kafka host bootstrap: `localhost:9094` (dual listeners — Docker-internal clients use `kafka:9092`).
 
 ## 6. Open items / blockers
 

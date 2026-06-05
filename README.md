@@ -51,7 +51,7 @@ docker compose -f infra/docker-compose.yml up -d
 ```
 
 - PostgreSQL: `localhost:5432` (db `aetherstream`, user/pass `aether`)
-- Kafka: `localhost:9092`
+- Kafka (host): `localhost:9094` — internal Docker clients use `kafka:9092`
 - Kafka UI: http://localhost:8089
 
 Flyway migrations run from the `infrastructure` module when Spring services start.

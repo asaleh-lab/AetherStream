@@ -2,7 +2,7 @@
 # Creates the AetherStream Kafka topics. Idempotent: re-running is safe.
 # Intended for the docker-compose one-shot init container, but usable manually.
 #
-#   BOOTSTRAP=localhost:9092 ./create-topics.sh
+#   BOOTSTRAP=localhost:9094 ./create-topics.sh   # from host (after compose up)
 set -euo pipefail
 
 BOOTSTRAP="${BOOTSTRAP:-kafka:9092}"
@@ -21,7 +21,7 @@ TOPICS=(
 
 echo "Creating topics on ${BOOTSTRAP} (partitions=${PARTITIONS}, replicas=${REPLICAS})"
 for topic in "${TOPICS[@]}"; do
-  kafka-topics.sh \
+  /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "${BOOTSTRAP}" \
     --create --if-not-exists \
     --topic "${topic}" \
@@ -31,4 +31,4 @@ for topic in "${TOPICS[@]}"; do
 done
 
 echo "Done. Current topics:"
-kafka-topics.sh --bootstrap-server "${BOOTSTRAP}" --list
+/opt/kafka/bin/kafka-topics.sh --bootstrap-server "${BOOTSTRAP}" --list
