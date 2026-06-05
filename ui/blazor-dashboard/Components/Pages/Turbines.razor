@@ -1,0 +1,24 @@
+@page "/turbines"
+
+<PageTitle>Turbines - AetherStream</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Turbine monitoring</RadzenText>
+<RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4 rz-color-secondary">
+    Turbine health and vibration indicators. DataGrid will bind to GET /api/turbines once the query side is live.
+</RadzenText>
+
+<RadzenDataGrid Data="@_turbines" TItem="TurbineRow" AllowPaging="true" PageSize="10">
+    <Columns>
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.TurbineId)" Title="Turbine" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.Rpm)" Title="RPM" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.PowerOutput)" Title="Power (kW)" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.VibrationLevel)" Title="Vibration" />
+        <RadzenDataGridColumn Property="@nameof(TurbineRow.Health)" Title="Health" />
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private readonly List<TurbineRow> _turbines = [];
+
+    private sealed record TurbineRow(string TurbineId, double Rpm, double PowerOutput, double VibrationLevel, string Health);
+}
