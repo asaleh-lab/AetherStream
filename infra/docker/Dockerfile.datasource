@@ -1,0 +1,20 @@
+# Build a single ingest (data source) Spring Boot service.
+# Build args: SERVICE_MODULE (e.g. services/ingestion-weather), SERVICE_ARTIFACT (e.g. ingestion-weather)
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /workspace
+RUN apk add --no-cache bash
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+COPY core core
+COPY services services
+ARG SERVICE_MODULE
+RUN chmod +x mvnw \
+    && ./mvnw -pl "${SERVICE_MODULE}" -am package -DskipTests -q
+
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache curl
+WORKDIR /app
+ARG SERVICE_ARTIFACT
+COPY --from=build /workspace/services/${SERVICE_ARTIFACT}/target/${SERVICE_ARTIFACT}.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

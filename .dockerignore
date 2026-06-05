@@ -1,0 +1,10 @@
+.git
+.github
+.cursor
+.specify
+.local
+**/target
+ui
+**/*.md
+!infra/**
+.mvn/wrapper/maven-wrapper.jar

@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (end of session 3 — **Phase 2 complete**)
+Last updated: 2026-06-05 (end of session 4 — **data sources dockerized**)
 
 ## 1. What this project is
 
@@ -24,11 +24,14 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Process: **real spec-kit** (`.specify/`), **HANDOFF.md** for continuity.
 - Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
 - GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
+- **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
+  all three **data source** containers (`datasource-weather|turbine|grid`). Reviewers need
+  Docker only (no JDK/Maven on host for the ingest smoke path).
 
 ## 3. Roadmap (6 phases)
 
 1. **Infra & skeleton** — **DONE** (PR #1).
-2. **Write side + Outbox** — **DONE** (this branch). Command handlers, domain persistence, transactional outbox writes.
+2. **Write side + Outbox** — **DONE**. Command handlers, domain persistence, transactional outbox writes.
 3. **Outbox relay** — idempotent batched publish, retries, DLQ.
 4. **Stream processing (Flink)** — aggregation join, anomaly detection, decision engine.
 5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
@@ -36,69 +39,67 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `phase-2/write-side-outbox`  
-**Base:** `main` (includes Phase 1 via fast-forward merge from `phase-1/infra-skeleton`)
+**Branch:** `phase-2/write-side-outbox` (or successor)  
+**Base:** `main`
 
 ### Phase 2 — complete
 
-- [x] `SpringCommandBus` / `SpringQueryBus` in `core/infrastructure`
-- [x] Commands: `RecordTurbineTelemetryCommand`, `RecordWeatherReadingCommand`, `RecordGridLoadCommand`
-- [x] Handlers: `@Transactional` write model + `OutboxEvent.pending(...)` via `OutboxWriter` port
-- [x] JPA adapters: `JpaOutboxAppender`, `JpaOutboxWriter`, `JpaTurbineStateStore`
-- [x] Event envelope serialization (`EventEnvelope` + Jackson) with correlation id
-- [x] `POST /api/ingest/weather|turbine|grid` on each ingestion service
-- [x] Simulated turbine/grid producers + weather polling skeleton
-- [x] Testcontainers integration test: command -> `turbine_state` + `outbox_events` PENDING row
-- [x] Correlation ID filter (`X-Correlation-Id` header + MDC)
+- [x] CQRS command bus, ingest handlers, outbox writes, REST ingest APIs
+- [x] Testcontainers write-side integration test
+- [x] Correlation ID filter
+- [x] **Docker data sources**: `datasource-weather`, `datasource-turbine`, `datasource-grid`
+  in [infra/docker-compose.yml](infra/docker-compose.yml) via [infra/docker/Dockerfile.datasource](infra/docker/Dockerfile.datasource)
+- [x] [scripts/smoke-ingest.ps1](scripts/smoke-ingest.ps1) — compose up + POST smoke tests
 
 ### Verified (2026-06-05)
 
 ```powershell
 .\mvnw.cmd package                              # OK (includes WriteSideOutboxIntegrationTest)
 docker compose -f infra/docker-compose.yml config # OK
+.\scripts\smoke-ingest.ps1 -SkipCommit          # compose + ingest smoke (after image build)
 ```
 
 ### Phase 3 — start here (next chat)
 
-1. Open PR for `phase-2/write-side-outbox` -> `main`.
+1. Open/merge Phase 2 PR if not done.
 2. Implement outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka.
-3. Map `aggregate_type`/`event_type` -> topic; mark `SENT` / `FAILED`; DLQ on exhausted retries.
+3. Add `datasource-outbox-relay` (or `outbox-relay`) to docker-compose when relay is ready.
 4. Integration test with Testcontainers (Postgres + Kafka): outbox row -> Kafka topic.
 
 **Do not** implement Flink stream processing in Phase 3 — that is Phase 4.
 
+### Later compose work (natural follow-on)
+
+- `api-gateway`, `stream-processor`, `decision-engine`, Blazor UI — add to compose as each phase lands.
+- Optional compose **profile** `full` when all services are containerized (SC-004).
+
 ## 5. Environment notes / gotchas
 
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
-- Maven lives at `C:\Users\asama\tools\apache-maven-3.9.9` (User PATH). Prefer **`.\mvnw.cmd`** in-repo.
-- Fresh shells may need PATH refresh:
-  ```powershell
-  $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
-  $env:JAVA_HOME = [Environment]::GetEnvironmentVariable("JAVA_HOME","Machine")
-  ```
+- Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
-- Blazor template is **`dotnet new blazor --interactivity Server`** (not legacy `blazorserver`).
-- Service ports: gateway 8080, weather 8081, turbine 8082, grid 8083, relay 8084, kafka-ui 8089.
-- Kafka host bootstrap: `localhost:9094` (dual listeners — Docker-internal clients use `kafka:9092`).
-- Outbox `payload` column is JSONB; entity uses `@JdbcTypeCode(SqlTypes.JSON)`.
-- Disable simulators for manual API testing: `aetherstream.simulation.enabled=false` or `aetherstream.weather.polling.enabled=false`.
+- **Compose service names** (data sources): `datasource-weather` (8081), `datasource-turbine` (8082), `datasource-grid` (8083).
+- **Container names**: `aether-datasource-*` — labels `aetherstream.role=datasource`.
+- Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
+- Simulators off in compose (`AETHERSTREAM_SIMULATION_ENABLED=false`, weather polling off).
+- First `docker compose up --build` is slow (Maven inside image); subsequent runs use cache.
+- Stop host Maven ingest processes before compose if ports 8081–8083 are already taken.
 
 ## 6. Open items / blockers
 
-- PR #1 (Phase 1) may still be open on GitHub; merge when ready — Phase 2 branch already contains Phase 1 code.
-- Phase 3 needs `docker compose up` for relay smoke tests against Kafka.
+- PR #1 (Phase 1) may still be open on GitHub; merge when ready.
+- Outbox relay not yet in compose — Phase 3 deliverable.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
 Continue AetherStream Phase 3 (outbox relay).
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-Branch from main: phase-3/outbox-relay (after merging Phase 2 PR).
 Implement idempotent batched outbox relay with retries and DLQ per architecture doc.
-Commit conventionally and push to asaleh-lab/AetherStream.
+Add relay to docker-compose when ready. Commit conventionally and push to asaleh-lab/AetherStream.
 ```
 
-## 8. Commit history (Phase 2, chronological)
+## 8. Recent commits (chronological)
 
 ```text
 feat(core): add ingest commands, handlers, and outbox/turbine ports
@@ -106,4 +107,5 @@ feat(infra): implement CQRS buses, JPA outbox adapters, and correlation filter
 feat(services): add ingest REST APIs and data producers for weather/turbine/grid
 test(infra): add Testcontainers write-side outbox integration test
 docs: update HANDOFF for Phase 2 completion
+infra(docker): containerize weather/turbine/grid data sources in compose
 ```

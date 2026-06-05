@@ -1,5 +1,21 @@
-# Local development stack for AetherStream.
-# Usage: docker compose -f infra/docker-compose.yml up -d
+# Local stack for AetherStream.
+# Usage: docker compose -f infra/docker-compose.yml up -d --build
+#
+# Data sources (write-side producers): weather, turbine telemetry, grid load.
+# Each accepts POST /api/ingest/{weather|turbine|grid} and writes domain state + outbox rows.
+
+x-datasource-env: &datasource-env
+  AETHER_DB_URL: jdbc:postgresql://postgres:5432/aetherstream
+  AETHER_DB_USER: aether
+  AETHER_DB_PASSWORD: aether
+  AETHER_KAFKA_BOOTSTRAP: kafka:9092
+
+x-datasource-depends: &datasource-depends
+  postgres:
+    condition: service_healthy
+  kafka:
+    condition: service_healthy
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -67,6 +83,86 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: aether-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+  # --- Data sources (event producers into the write model) ---
+
+  datasource-weather:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.datasource
+      args:
+        SERVICE_MODULE: services/ingestion-weather
+        SERVICE_ARTIFACT: ingestion-weather
+    image: aetherstream/datasource-weather:local
+    container_name: aether-datasource-weather
+    depends_on: *datasource-depends
+    ports:
+      - "8081:8081"
+    environment:
+      <<: *datasource-env
+      SERVER_PORT: 8081
+      AETHERSTREAM_WEATHER_POLLING_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    labels:
+      aetherstream.role: datasource
+      aetherstream.stream: weather
+
+  datasource-turbine:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.datasource
+      args:
+        SERVICE_MODULE: services/ingestion-turbine
+        SERVICE_ARTIFACT: ingestion-turbine
+    image: aetherstream/datasource-turbine:local
+    container_name: aether-datasource-turbine
+    depends_on: *datasource-depends
+    ports:
+      - "8082:8082"
+    environment:
+      <<: *datasource-env
+      SERVER_PORT: 8082
+      AETHERSTREAM_SIMULATION_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    labels:
+      aetherstream.role: datasource
+      aetherstream.stream: turbine
+
+  datasource-grid:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.datasource
+      args:
+        SERVICE_MODULE: services/ingestion-grid
+        SERVICE_ARTIFACT: ingestion-grid
+    image: aetherstream/datasource-grid:local
+    container_name: aether-datasource-grid
+    depends_on: *datasource-depends
+    ports:
+      - "8083:8083"
+    environment:
+      <<: *datasource-env
+      SERVER_PORT: 8083
+      AETHERSTREAM_SIMULATION_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    labels:
+      aetherstream.role: datasource
+      aetherstream.stream: grid
 
 volumes:
   aether-pgdata:

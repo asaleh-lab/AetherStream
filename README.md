@@ -25,14 +25,16 @@ See [HANDOFF.md](HANDOFF.md) for cross-session state and [specs/001-aetherstream
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       ingestion-*, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 8 + Radzen)
-infra/          docker-compose (Kafka KRaft, PostgreSQL, kafka-ui)
+infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, data sources)
+scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
 
 ## Prerequisites
 
-- JDK 21, Docker, .NET 8 SDK
-- Maven is optional — the repo includes `./mvnw`
+- **Reviewers / demo:** Docker only
+- **Java development:** JDK 21 (Maven via `./mvnw`)
+- **UI development:** .NET 8 SDK
 
 ## Build
 
@@ -44,34 +46,55 @@ specs/          spec-kit artifacts
 dotnet build ui/blazor-dashboard
 ```
 
-## Local infrastructure
+## Local stack (plug-and-play)
 
 ```powershell
-docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-- PostgreSQL: `localhost:5432` (db `aetherstream`, user/pass `aether`)
-- Kafka (host): `localhost:9094` — internal Docker clients use `kafka:9092`
-- Kafka UI: http://localhost:8089
+Brings up Postgres, Kafka, Kafka UI, and the three **data source** producers (weather,
+turbine telemetry, grid load). Flyway runs on startup — no manual schema setup.
 
-Flyway migrations run from the `infrastructure` module when Spring services start.
+| Container | Role | Port |
+|-----------|------|------|
+| `aether-postgres` | Database | 5432 |
+| `aether-kafka` | Event backbone (host) | 9094 |
+| `aether-kafka-ui` | Topic browser | 8089 |
+| `aether-datasource-weather` | Weather feed producer | 8081 |
+| `aether-datasource-turbine` | Turbine telemetry producer | 8082 |
+| `aether-datasource-grid` | Grid load producer | 8083 |
 
-## Service ports (skeleton defaults)
+Smoke-test all ingest endpoints:
 
-| Service            | Port |
-|--------------------|------|
-| api-gateway        | 8080 |
-| ingestion-weather  | 8081 |
-| ingestion-turbine  | 8082 |
-| ingestion-grid     | 8083 |
-| outbox-relay       | 8084 |
-| Blazor dashboard   | 5000 (launchSettings) |
+```powershell
+.\scripts\smoke-ingest.ps1 -SkipCommit
+```
+
+Or POST manually (example — turbine telemetry):
+
+```powershell
+Invoke-RestMethod -Method POST -Uri http://localhost:8082/api/ingest/turbine `
+  -ContentType application/json `
+  -Body '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}'
+```
+
+Expect HTTP 202 with `eventId`, `correlationId`, and `status: PENDING` (outbox row written).
+
+Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
+
+## Other services (not yet in compose)
+
+| Service | Port |
+|---------|------|
+| api-gateway | 8080 |
+| outbox-relay | 8084 |
+| Blazor dashboard | 5000 |
 
 ## Status
 
-Phase 1 (infra & skeleton) scaffolds the monorepo, schema, topics, docker-compose, and UI
-shell. Business logic (command handlers, outbox relay, Flink topology, live WebSocket) lands
-in Phases 2–6. Track progress in [HANDOFF.md](HANDOFF.md) and [PR #1](https://github.com/asaleh-lab/AetherStream/pull/1).
+**Phase 2 (write side + outbox)** is complete: CQRS command handlers, ingest REST APIs,
+transactional outbox writes, and the three data source containers in docker-compose.
+**Phase 3** (outbox relay → Kafka) is next. Track progress in [HANDOFF.md](HANDOFF.md).
 
 ## License
 
