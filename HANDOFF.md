@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 4 merged — PR #4; start Phase 5)
+Last updated: 2026-06-05 (Phase 5 merged — PR #5; start Phase 6)
 
 ## 1. What this project is
 
@@ -18,7 +18,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 ## 2. Locked decisions
 
 - Stack: **Java 21 + Spring Boot 3.3 + Apache Flink 1.19 + Kafka (KRaft) + PostgreSQL 16**
-  backend; **.NET 8 Blazor Server + Radzen** UI over REST + WebSocket. (Hybrid polyglot.)
+  backend; **.NET 10 Blazor Server + Radzen** UI over REST + WebSocket. (Hybrid polyglot.)
 - Build: **Maven multi-module reactor** + committed Maven Wrapper (`mvnw`).
 - Reliability: Outbox pattern, at-least-once + idempotent consumers (not end-to-end EOS).
 - Process: **real spec-kit** (`.specify/`), **HANDOFF.md** for continuity.
@@ -32,7 +32,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
      `application.yml`, structured logging, CQRS command bus, domain, JPA, transactional outbox,
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
 - **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
-  **write-side** + **datasource** + **outbox-relay** + **stream-processor**. Reviewers need Docker only.
+  **write-side** + **datasource** + **outbox-relay** + **stream-processor** + **api-gateway**.
+  Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
@@ -41,13 +42,14 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 3. **Outbox relay** — **DONE** (PR #3).
 4. **Stream processing (Flink)** — **DONE** (PR #4). Aggregation join + anomaly detection;
    `decision-engine` still skeleton (defer or fold into later phase).
-5. **Query side + real-time gateway** — **NEXT** on `phase-5/api-gateway`.
-6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
+5. **Query side + real-time gateway** — **DONE** (PR #5). Read-model Kafka consumers,
+   query REST APIs, WebSocket push, compose service.
+6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **NEXT**.
 
 ## 4. Current status
 
-**Branch:** `main` (Phase 4 merged)  
-**Next branch:** `phase-5/api-gateway`
+**Branch:** `main` (Phase 5 merged)  
+**Next branch:** `phase-6/blazor-ui` (or similar)
 
 ### Phase 3 — complete (merged PR #3)
 
@@ -67,37 +69,51 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] Pipeline + operator harness tests (aggregation, anomaly, envelope parsing)
 - [ ] Decision engine (`decision-engine` skeleton → optimization recommendations; deferred)
 
+### Phase 5 — complete (merged PR #5)
+
+- [x] Kafka consumers: `energy-state-events` → `energy_state_snapshot`, `alerts` → `alerts`
+  (idempotent by event id)
+- [x] Query REST APIs on `api-gateway`: `GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`
+- [x] WebSocket push at `/ws/realtime` (energy-state + alert messages)
+- [x] CQRS query handlers via `QueryBus` + read-model ports
+- [x] `api-gateway` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8085)
+- [x] Testcontainers integration test: Kafka event → read-model projection
+
 ### Verified (2026-06-05)
 
 ```powershell
-.\mvnw.cmd -pl services/stream-processor -am test   # OK (pipeline + harness tests)
+$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.11_10"
+.\mvnw.cmd -pl services/api-gateway -am test   # OK (projection integration test)
 docker compose -f infra/docker-compose.yml config    # OK
-docker build -f infra/docker/Dockerfile.stream-processor -t aetherstream/stream-processor:local .  # OK
 ```
 
-### Phase 5 — start here
+### Phase 6 — start here
 
-1. Implement `api-gateway` read-model consumers (energy-state, alerts projections).
-2. Add query REST APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`).
-3. Add WebSocket push for energy-state and alerts.
-4. Add `api-gateway` to docker-compose.
-5. At end of session: commit, open Phase 5 PR, merge right away.
+1. Scaffold .NET 10 Blazor Server + Radzen dashboard in `ui/blazor-dashboard`.
+2. Wire REST (`/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`) and WebSocket
+   (`/ws/realtime`) to live UI components.
+3. Add Blazor UI to docker-compose (optional profile `full`).
+4. Expand Testcontainers coverage and correlation-id propagation end-to-end.
 
-**Do not** implement Blazor UI in Phase 5 — that is Phase 6.
+**Do not** skip observability: health/metrics endpoints must stay exposed on all deployables.
 
 ### Later compose work (natural follow-on)
 
-- `decision-engine`, `api-gateway`, Blazor UI — add to compose as each phase lands.
+- `decision-engine`, Blazor UI — add to compose as Phase 6 lands.
 - Optional compose **profile** `full` when all services are containerized (SC-004).
 
 ## 5. Environment notes / gotchas
 
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
+- Set **`JAVA_HOME`** to JDK 21 if `mvnw` fails (e.g. Amazon Corretto 21).
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
+- **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
+  `/api/turbines/{id}`
+- **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
-  `stream-processor` (Flink job, no HTTP port).
+  `api-gateway` (8085), `stream-processor` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
@@ -106,20 +122,20 @@ docker build -f infra/docker/Dockerfile.stream-processor -t aetherstream/stream-
   `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
 - Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
 - First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
-- Stop host Java processes before compose if ports 8080–8081 are already taken.
+- Stop host Java processes before compose if ports 8080–8081 or 8085 are already taken.
 
 ## 6. Open items / blockers
 
-- Phase 4 PR #4 merged to `main`.
-- Phase 5 PR not yet opened.
+- Phase 5 PR #5 merged to `main`.
+- Phase 6 (Blazor UI) not yet started.
 - `decision-engine` still skeleton (optimization recommendations — defer or Phase 4 follow-up).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 5 (query side + api-gateway).
+Continue AetherStream Phase 6 (Blazor UI live).
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-At the end of the session: commit, open the Phase 5 PR, and merge it right away.
+At the end of the session: commit, open Phase 6 PR, and merge right away.
 ```
 
 ## 8. Recent commits (chronological)
@@ -142,4 +158,5 @@ infra(docker): add outbox-relay service to compose
 docs: update HANDOFF for Phase 3 outbox relay
 feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
 feat(stream-processor): Flink aggregation join and anomaly detection  [PR #4 merged]
+feat(api-gateway): read-model projections, query APIs, and WebSocket push  [PR #5 merged]
 ```

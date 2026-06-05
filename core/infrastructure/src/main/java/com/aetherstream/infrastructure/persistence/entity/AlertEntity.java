@@ -41,6 +41,10 @@ public class AlertEntity {
         // JPA
     }
 
+    public static AlertEntity newInstance() {
+        return new AlertEntity();
+    }
+
     public UUID getId() {
         return id;
     }

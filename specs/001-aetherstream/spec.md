@@ -163,5 +163,5 @@ per-turbine state; confirm the weather panel reflects the latest weather reading
 - Data sources are simulated (turbine/grid producers) or polled from a free/public weather API; no real SCADA integration.
 - Kafka runs in KRaft mode (no ZooKeeper); a single broker is sufficient for the demo.
 - Stream processing is implemented with Apache Flink (or Flink-style semantics) on the JVM; "Flink-style" means real windowing/join/keyed-state semantics, not a literal port.
-- The UI is .NET 8 Blazor Server with Radzen, a separate process from the JVM backend, communicating over REST + WebSocket.
+- The UI is .NET 10 Blazor Server with Radzen, a separate process from the JVM backend, communicating over REST + WebSocket.
 - Exactly-once is achieved at the system level via at-least-once delivery plus idempotent consumers, not via Kafka transactional exactly-once across all hops.

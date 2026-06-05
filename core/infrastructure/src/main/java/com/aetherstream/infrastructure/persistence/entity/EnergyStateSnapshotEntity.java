@@ -35,6 +35,10 @@ public class EnergyStateSnapshotEntity {
         // JPA
     }
 
+    public static EnergyStateSnapshotEntity newInstance() {
+        return new EnergyStateSnapshotEntity();
+    }
+
     public UUID getId() {
         return id;
     }

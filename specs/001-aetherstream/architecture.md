@@ -16,7 +16,7 @@ the stream-processing topology, persistence, APIs, and observability.
 | Messaging | Apache Kafka (KRaft mode, single broker for local) |
 | Persistence | PostgreSQL 16 + Flyway migrations |
 | Build | Maven multi-module reactor + committed Maven Wrapper |
-| UI | .NET 8 Blazor Server + Radzen, over REST + WebSocket |
+| UI | .NET 10 Blazor Server + Radzen, over REST + WebSocket |
 | Logging | Logback + logstash-logback-encoder (JSON) + MDC correlation id |
 | Testing | JUnit 5 + Testcontainers (Kafka, PostgreSQL) |
 | Local infra | docker-compose |
@@ -43,7 +43,7 @@ AetherStream/
     application/                # command/query bus, handlers, ports
     infrastructure/             # JPA, Kafka, adapters, correlation, logging
   ui/
-    blazor-dashboard/           # .NET 8 Blazor Server + Radzen
+    blazor-dashboard/           # .NET 10 Blazor Server + Radzen
   infra/
     docker-compose.yml  kafka/create-topics.sh  postgres/
   # Flyway migrations live on the infrastructure classpath:
@@ -181,7 +181,7 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 - Command APIs (write, on **`write-side`**): `POST /api/ingest/weather`, `/api/ingest/turbine`,
   `/api/ingest/grid`. The **`datasource`** service forwards readings to these endpoints; it
   does not expose ingest APIs itself.
-- Query APIs (read, on **`api-gateway`**, Phase 5): `GET /api/energy/latest`, `/api/alerts`,
+- Query APIs (read, on **`api-gateway`**, Phase 5 — **DONE**): `GET /api/energy/latest`, `/api/alerts`,
   `/api/turbines/{id}`.
 - WebSocket: gateway pushes energy-state updates and alerts to the Blazor UI.
 
@@ -204,6 +204,8 @@ write-side startup.
 |---------|------|------|
 | write-side | 8080 | Ingest APIs, CQRS, outbox, PostgreSQL |
 | datasource | 8081 | External feed simulator (POSTs to write-side) |
+| outbox-relay | 8084 | Outbox → Kafka relay |
+| api-gateway | 8085 | Query APIs + WebSocket push |
 
 ## 12. Phased delivery
 
@@ -211,7 +213,7 @@ write-side startup.
 2. **Write side + Outbox** — **DONE**: `write-side` ingest APIs, command handlers, domain persistence, transactional outbox writes; single `datasource` producer.
 3. Outbox relay (idempotent batched publish, retries, DLQ).
 4. Stream processing (aggregation join, anomaly detection, decision engine).
-5. Query side + real-time gateway (read-model projections, query APIs, WebSocket push).
+5. Query side + real-time gateway (read-model projections, query APIs, WebSocket push) — **DONE**.
 6. Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
 
 ## 13. Key decisions & trade-offs

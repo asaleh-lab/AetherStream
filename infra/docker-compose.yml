@@ -190,5 +190,37 @@ services:
       aetherstream.role: stream-processor
     restart: unless-stopped
 
+  # --- API gateway (read-model projections, query APIs, WebSocket) ---
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.api-gateway
+    image: aetherstream/api-gateway:local
+    container_name: aether-api-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      stream-processor:
+        condition: service_started
+    ports:
+      - "8085:8085"
+    environment:
+      <<: *write-side-env
+      SERVER_PORT: 8085
+      SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: latest
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8085/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    labels:
+      aetherstream.role: api-gateway
+
 volumes:
   aether-pgdata:

@@ -2,7 +2,7 @@
 
 A portfolio project: a real-time wind-energy monitoring platform built to demonstrate
 production-shaped design of an event-driven streaming system. The backend is JVM-native
-(Java 21, Spring Boot, Apache Flink, Kafka, PostgreSQL); the UI is .NET 8 Blazor with
+(Java 21, Spring Boot, Apache Flink, Kafka, PostgreSQL); the UI is .NET 10 Blazor with
 Radzen. The brief's ASP.NET-to-JVM mapping table is documentation intent — this is not a
 literal .NET port, but a system that shows I can design and implement the same patterns
 in the Java ecosystem quickly.
@@ -37,7 +37,7 @@ datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Fli
 ```text
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
-ui/             blazor-dashboard (.NET 8 + Radzen)
+ui/             blazor-dashboard (.NET 10 + Radzen)
 infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, datasource)
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
@@ -47,7 +47,7 @@ specs/          spec-kit artifacts
 
 - **Reviewers / demo:** Docker only
 - **Java development:** JDK 21 (Maven via `./mvnw`)
-- **UI development:** .NET 8 SDK
+- **UI development:** .NET 10 SDK
 
 ## Build
 
@@ -65,8 +65,9 @@ dotnet build ui/blazor-dashboard
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and **datasource**
-(auto-forwarding weather, turbine, and grid readings). Flyway runs on write-side startup.
+Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
+(auto-forwarding weather, turbine, and grid readings), **outbox-relay**, **stream-processor**,
+and **api-gateway** (query APIs + WebSocket). Flyway runs on service startup.
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -75,6 +76,8 @@ Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and **datas
 | `aether-kafka-ui` | Topic browser | 8089 |
 | `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
 | `aether-datasource` | External feed simulator | 8081 |
+| `aether-outbox-relay` | Outbox → Kafka relay | 8084 |
+| `aether-api-gateway` | Query APIs + WebSocket | 8085 |
 
 Smoke-test write-side ingest endpoints:
 
@@ -98,15 +101,16 @@ Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
 
 | Service | Port |
 |---------|------|
-| outbox-relay | 8084 |
-| api-gateway | 8085 (planned; was 8080 before write-side) |
 | Blazor dashboard | 5000 |
+
+Query APIs: `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`  
+WebSocket: `ws://localhost:8085/ws/realtime`
 
 ## Status
 
-**Phase 2 (write side + outbox)** is complete: central **write-side** ingest APIs,
-transactional outbox, and a single **datasource** producer in docker-compose.
-**Phase 3** (outbox relay → Kafka) is next. Track progress in [HANDOFF.md](HANDOFF.md).
+**Phase 5 (query side + api-gateway)** is complete: read-model Kafka consumers, query REST
+APIs, WebSocket push, and `api-gateway` in docker-compose. **Phase 6** (Blazor UI) is next.
+Track progress in [HANDOFF.md](HANDOFF.md).
 
 ## License
 
