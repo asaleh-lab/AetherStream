@@ -136,5 +136,36 @@ services:
     labels:
       aetherstream.role: datasource
 
+  # --- Outbox relay (outbox_events -> Kafka) ---
+
+  outbox-relay:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.outbox-relay
+    image: aetherstream/outbox-relay:local
+    container_name: aether-outbox-relay
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      write-side:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      <<: *write-side-env
+      SERVER_PORT: 8084
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    labels:
+      aetherstream.role: outbox-relay
+
 volumes:
   aether-pgdata:
