@@ -54,7 +54,7 @@ Testcontainers for Kafka and PostgreSQL. Trivial glue code is not over-tested.
 - Backend: Java 21, Spring Boot 3.3.x, Apache Flink 1.19 (stream processing).
 - Messaging: Apache Kafka in KRaft mode. Persistence: PostgreSQL 16 with Flyway migrations.
 - Build: Maven multi-module reactor; a committed Maven Wrapper makes the repo self-contained.
-- UI: .NET 8 Blazor Server with Radzen components, consuming REST + WebSocket from the gateway.
+- UI: .NET 10 Blazor Server with Radzen components, consuming REST + WebSocket from the gateway.
 - Infrastructure is reproducible via a single `docker-compose` for Kafka and PostgreSQL.
 - The Java mapping table in the project brief (ASP.NET -> JVM equivalents) is documentation
   intent; the implementation is JVM-native, not a literal .NET port.
@@ -73,4 +73,4 @@ This constitution supersedes ad-hoc preferences. Any deviation (for example, a j
 synchronous call or a skipped test) must be documented in the relevant spec or PR with its
 rationale. Amendments are made by editing this file with a version bump and a dated note.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-05 | **Last Amended**: 2026-06-05
+**Version**: 1.0.1 | **Ratified**: 2026-06-05 | **Last Amended**: 2026-06-05

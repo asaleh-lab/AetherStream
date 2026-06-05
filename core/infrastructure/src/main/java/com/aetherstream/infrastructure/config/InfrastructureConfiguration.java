@@ -1,5 +1,6 @@
 package com.aetherstream.infrastructure.config;
 
+import com.aetherstream.infrastructure.messaging.EventEnvelopeParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -14,5 +15,10 @@ public class InfrastructureConfiguration {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+
+    @Bean
+    public EventEnvelopeParser eventEnvelopeParser(ObjectMapper objectMapper) {
+        return new EventEnvelopeParser(objectMapper);
     }
 }
