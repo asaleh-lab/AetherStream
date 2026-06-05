@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 4 stream processor — Flink aggregation + anomaly)
+Last updated: 2026-06-05 (Phase 4 merged — PR #4; start Phase 5)
 
 ## 1. What this project is
 
@@ -39,15 +39,15 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 1. **Infra & skeleton** — **DONE** (PR #1).
 2. **Write side + Outbox** — **DONE** (PR #2).
 3. **Outbox relay** — **DONE** (PR #3).
-4. **Stream processing (Flink)** — **IN PROGRESS** on `phase-4/stream-processor`. Aggregation join
-   + anomaly detection implemented; decision engine still skeleton.
-5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
+4. **Stream processing (Flink)** — **DONE** (PR #4). Aggregation join + anomaly detection;
+   `decision-engine` still skeleton (defer or fold into later phase).
+5. **Query side + real-time gateway** — **NEXT** on `phase-5/api-gateway`.
 6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
 
 ## 4. Current status
 
-**Branch:** `phase-4/stream-processor`  
-**Base:** `main`
+**Branch:** `main` (Phase 4 merged)  
+**Next branch:** `phase-5/api-gateway`
 
 ### Phase 3 — complete (merged PR #3)
 
@@ -56,7 +56,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] `outbox-relay` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8084)
 - [x] Testcontainers integration test (Postgres + Kafka): outbox row → Kafka topic
 
-### Phase 4 — in progress
+### Phase 4 — complete (merged PR #4)
 
 - [x] Flink `stream-processor`: consume `turbine-events`, `weather-events`, `grid-events`
 - [x] Keyed-by-region aggregation (Flink state): `totalWindPower`, `gridDemand`, `efficiencyScore`
@@ -65,8 +65,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] Event-time watermarks with 5s allowed lateness
 - [x] `stream-processor` in [infra/docker-compose.yml](infra/docker-compose.yml)
 - [x] Pipeline + operator harness tests (aggregation, anomaly, envelope parsing)
-- [ ] Decision engine (`decision-engine` skeleton → optimization recommendations)
-- [ ] Open PR and merge Phase 4 (do this at end of session)
+- [ ] Decision engine (`decision-engine` skeleton → optimization recommendations; deferred)
 
 ### Verified (2026-06-05)
 
@@ -76,11 +75,13 @@ docker compose -f infra/docker-compose.yml config    # OK
 docker build -f infra/docker/Dockerfile.stream-processor -t aetherstream/stream-processor:local .  # OK
 ```
 
-### Phase 5 — start here (after Phase 4 PR)
+### Phase 5 — start here
 
 1. Implement `api-gateway` read-model consumers (energy-state, alerts projections).
-2. Add query REST APIs and WebSocket push.
-3. Add `api-gateway` to docker-compose.
+2. Add query REST APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`).
+3. Add WebSocket push for energy-state and alerts.
+4. Add `api-gateway` to docker-compose.
+5. At end of session: commit, open Phase 5 PR, merge right away.
 
 **Do not** implement Blazor UI in Phase 5 — that is Phase 6.
 
@@ -109,17 +110,16 @@ docker build -f infra/docker/Dockerfile.stream-processor -t aetherstream/stream-
 
 ## 6. Open items / blockers
 
-- Phase 3 PR #3 merged to `main`.
-- Phase 4 PR not yet opened.
-- `decision-engine` still skeleton (optimization recommendations — finish in Phase 4 or defer).
+- Phase 4 PR #4 merged to `main`.
+- Phase 5 PR not yet opened.
+- `decision-engine` still skeleton (optimization recommendations — defer or Phase 4 follow-up).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 4 (Flink stream processing).
+Continue AetherStream Phase 5 (query side + api-gateway).
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-At the end of the session: commit, open the Phase 4 PR, and merge it right away.
-If Phase 4 PR is already merged, start Phase 5 (query side + api-gateway).
+At the end of the session: commit, open the Phase 5 PR, and merge it right away.
 ```
 
 ## 8. Recent commits (chronological)
@@ -141,4 +141,5 @@ test(services): add Testcontainers outbox relay integration test
 infra(docker): add outbox-relay service to compose
 docs: update HANDOFF for Phase 3 outbox relay
 feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
+feat(stream-processor): Flink aggregation join and anomaly detection  [PR #4 merged]
 ```
