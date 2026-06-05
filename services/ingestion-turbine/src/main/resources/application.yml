@@ -18,6 +18,11 @@ spring:
 server:
   port: ${SERVER_PORT:8082}
 
+aetherstream:
+  simulation:
+    enabled: true
+    interval-ms: 5000
+
 management:
   endpoints:
     web:

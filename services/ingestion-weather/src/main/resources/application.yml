@@ -15,6 +15,13 @@ spring:
   kafka:
     bootstrap-servers: ${AETHER_KAFKA_BOOTSTRAP:localhost:9094}
 
+aetherstream:
+  weather:
+    polling:
+      enabled: true
+    poll-interval-ms: 60000
+    api-url: https://api.open-meteo.com/v1/forecast
+
 server:
   port: ${SERVER_PORT:8081}
 
