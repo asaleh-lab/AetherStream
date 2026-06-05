@@ -1,9 +1,11 @@
 # Build the thin datasource producer (no core/domain/CQRS).
+# core/ is copied so Maven can resolve the parent reactor; only services/datasource is built.
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /workspace
 RUN apk add --no-cache bash
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
+COPY core core
 COPY services services
 ARG SERVICE_MODULE=services/datasource
 RUN chmod +x mvnw \
