@@ -1,0 +1,36 @@
+﻿@page "/"
+
+<PageTitle>Dashboard - AetherStream</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Energy overview</RadzenText>
+<RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4 rz-color-secondary">
+    Live data will stream here via WebSocket once the query gateway is wired (Phase 5).
+</RadzenText>
+
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12" SizeMD="4">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.Overline">Total wind power</RadzenText>
+            <RadzenText TextStyle="TextStyle.H3">— kW</RadzenText>
+        </RadzenCard>
+    </RadzenColumn>
+    <RadzenColumn Size="12" SizeMD="4">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.Overline">Grid demand</RadzenText>
+            <RadzenText TextStyle="TextStyle.H3">— MW</RadzenText>
+        </RadzenCard>
+    </RadzenColumn>
+    <RadzenColumn Size="12" SizeMD="4">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.Overline">Efficiency</RadzenText>
+            <RadzenProgressBarCircular Value="0" ShowValue="true" ProgressBarStyle="ProgressBarStyle.Success" />
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+<RadzenCard>
+    <RadzenText TextStyle="TextStyle.H6">Grid load</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+        Chart placeholder — Radzen chart will bind to live energy-state events.
+    </RadzenText>
+</RadzenCard>

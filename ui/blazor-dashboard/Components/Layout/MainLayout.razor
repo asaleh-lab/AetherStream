@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+
+<RadzenLayout Style="min-height: 100vh;">
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" class="rz-p-2">
+            <RadzenText TextStyle="TextStyle.H5" TagName="TagName.H1" class="rz-m-0">AetherStream</RadzenText>
+            <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">Wind energy monitoring</RadzenText>
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenSidebar>
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="Dashboard" Path="/" Icon="dashboard" />
+            <RadzenPanelMenuItem Text="Turbines" Path="/turbines" Icon="wind_power" />
+            <RadzenPanelMenuItem Text="Alerts" Path="/alerts" Icon="warning" />
+            <RadzenPanelMenuItem Text="Weather" Path="/weather" Icon="cloud" />
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
