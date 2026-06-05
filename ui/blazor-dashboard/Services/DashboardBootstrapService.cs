@@ -1,6 +1,6 @@
 namespace AetherStream.Dashboard.Services;
 
-/// <summary>Loads initial REST snapshot on startup and periodically refreshes turbine state.</summary>
+/// <summary>Loads one REST snapshot on startup; live updates come from the WebSocket feed.</summary>
 public sealed class DashboardBootstrapService(
     GatewayApiClient gatewayApiClient,
     DashboardState dashboardState,
@@ -8,24 +8,13 @@ public sealed class DashboardBootstrapService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RefreshAsync(stoppingToken);
-
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            await RefreshAsync(stoppingToken);
-        }
-    }
-
-    private async Task RefreshAsync(CancellationToken cancellationToken)
-    {
         try
         {
-            await gatewayApiClient.BootstrapAsync(dashboardState, cancellationToken);
+            await gatewayApiClient.BootstrapAsync(dashboardState, stoppingToken);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Dashboard refresh failed");
+            logger.LogWarning(ex, "Dashboard bootstrap failed");
         }
     }
 }
