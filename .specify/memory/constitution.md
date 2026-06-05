@@ -1,50 +1,76 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# AetherStream Constitution
+
+AetherStream is a real-time wind-energy monitoring platform. It is a portfolio-grade
+system whose primary purpose is to demonstrate correct, production-shaped design of an
+event-driven streaming architecture on the JVM, with a separate .NET real-time UI.
+These principles are binding on all specs, plans, and implementation work.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Event-Driven Backbone
+Kafka is the system's source of truth for inter-service communication. Services
+communicate through topics, not synchronous calls, except for query-side reads.
+Every cross-service state change is represented as an immutable, versioned event.
+Topic names, keys, and payload schemas are defined in the spec before code is written.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Reliable Publishing via the Outbox Pattern (NON-NEGOTIABLE)
+No service performs a "dual write" (DB commit plus direct Kafka publish) inside a
+business transaction. State changes and their resulting events are written to the
+`outbox_events` table in the SAME database transaction. A separate relay publishes
+outbox rows to Kafka with at-least-once delivery, retries, and a dead-letter path.
+Downstream consumers MUST be idempotent. This guarantee is not optional and may not
+be bypassed for convenience.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. CQRS Separation
+The write model (commands, domain state, outbox) and the read model (query-optimized
+projections) are kept strictly separate. Commands never serve reads; queries never
+mutate state. Command and query handlers are dispatched through explicit bus
+abstractions (the MediatR-equivalent) rather than direct service coupling.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Clean, DDD-Inspired Layering
+Code is organized as `domain` (pure model, no framework deps), `application` (use
+cases, command/query handlers, ports), and `infrastructure` (JPA, Kafka, adapters).
+Dependencies point inward: domain depends on nothing; infrastructure depends on
+application and domain, never the reverse.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Observability by Default
+Structured JSON logging is mandatory. A correlation ID is generated at ingestion and
+propagated across API -> DB -> outbox -> Kafka -> stream processing via MDC and Kafka
+headers. Every deployable exposes health and metrics endpoints. A change is not "done"
+until it is observable.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Spec-Driven Development
+Work follows the spec-kit flow: constitution -> specify -> plan -> tasks -> implement.
+Specs and architecture decisions are committed artifacts, authored before the code that
+realizes them. Cross-chat continuity is maintained in `HANDOFF.md`.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### VII. Test the Risk, Not the Framework
+Reliability-critical paths (outbox relay correctness, CQRS handlers, Kafka
+producers/consumers, stream processors) are covered by integration tests using
+Testcontainers for Kafka and PostgreSQL. Trivial glue code is not over-tested.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Technology Constraints
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Backend: Java 21, Spring Boot 3.3.x, Apache Flink 1.19 (stream processing).
+- Messaging: Apache Kafka in KRaft mode. Persistence: PostgreSQL 16 with Flyway migrations.
+- Build: Maven multi-module reactor; a committed Maven Wrapper makes the repo self-contained.
+- UI: .NET 8 Blazor Server with Radzen components, consuming REST + WebSocket from the gateway.
+- Infrastructure is reproducible via a single `docker-compose` for Kafka and PostgreSQL.
+- The Java mapping table in the project brief (ASP.NET -> JVM equivalents) is documentation
+  intent; the implementation is JVM-native, not a literal .NET port.
+
+## Development Workflow
+
+- Branching: phase-based feature branches merged into `main` via pull request.
+- Commits: Conventional Commits (`feat`, `fix`, `build`, `chore`, `docs`, `test`, `ci`),
+  small and single-concern, each in a compiling/validating state.
+- Each phase ends by updating `HANDOFF.md`, running the phase's verification, and opening a PR.
+- The system is built in phases; no phase claims completion with a broken build.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc preferences. Any deviation (for example, a justified
+synchronous call or a skipped test) must be documented in the relevant spec or PR with its
+rationale. Amendments are made by editing this file with a version bump and a dated note.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-06-05 | **Last Amended**: 2026-06-05
