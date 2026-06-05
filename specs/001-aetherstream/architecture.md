@@ -32,9 +32,8 @@ Kafka consumer / Flink job; `MediatR` -> command/query bus; `EF Core` -> JPA/Hib
 AetherStream/
   pom.xml                       # parent reactor
   services/
-    ingestion-weather/          # Spring Boot: polls weather API -> command -> outbox
-    ingestion-turbine/          # Spring Boot: simulated turbine producer -> command -> outbox
-    ingestion-grid/             # Spring Boot: simulated grid feed -> command -> outbox
+    write-side/                 # Spring Boot: ingest REST APIs, CQRS, domain, outbox, PostgreSQL
+    datasource/                 # Thin producer: weather GET poll + turbine + grid simulators -> POST write-side
     outbox-relay/               # Spring Boot: polls outbox_events -> Kafka, retries, DLQ
     stream-processor/           # Flink: aggregation join + anomaly detection
     decision-engine/            # Flink/consumer: optimization recommendations
@@ -59,13 +58,13 @@ Dependency direction (Clean Architecture): `domain` <- `application` <- `infrast
 
 ```mermaid
 flowchart LR
-  weatherApi[Weather API] --> ingWeather[ingestion-weather]
-  turbineSim[Turbine simulator] --> ingTurbine[ingestion-turbine]
-  gridSim[Grid simulator] --> ingGrid[ingestion-grid]
+  weatherApi[Weather API] --> datasource[datasource single producer]
+  turbineSim[Turbine simulator] --> datasource
+  gridSim[Grid simulator] --> datasource
 
-  ingWeather --> db[(PostgreSQL write model plus outbox)]
-  ingTurbine --> db
-  ingGrid --> db
+  datasource -->|HTTP POST| writeSide[write-side CQRS plus outbox]
+
+  writeSide --> db[(PostgreSQL write model plus outbox)]
 
   db --> relay[outbox-relay]
   relay --> topics{{Kafka topics}}
@@ -85,9 +84,9 @@ flowchart LR
 
 | Topic | Key | Payload (summary) | Producer | Consumers |
 |---|---|---|---|---|
-| `weather-events` | region | weather reading | ingestion-weather (via relay) | stream-processor |
-| `turbine-events` | turbineId | turbine telemetry | ingestion-turbine (via relay) | stream-processor |
-| `grid-events` | region | grid load | ingestion-grid (via relay) | stream-processor |
+| `weather-events` | region | weather reading | write-side (via relay) | stream-processor |
+| `turbine-events` | turbineId | turbine telemetry | write-side (via relay) | stream-processor |
+| `grid-events` | region | grid load | write-side (via relay) | stream-processor |
 | `energy-state-events` | region | aggregated energy state | stream-processor | api-gateway, decision-engine |
 | `alerts` | region/turbineId | alert (type, severity) | stream-processor | api-gateway |
 | `dead-letter-events` | original key | failed event envelope | outbox-relay, consumers | ops/inspection |
@@ -103,7 +102,7 @@ within a partition. Local default: 1 partition, replication factor 1 (demo).
 
 ```mermaid
 sequenceDiagram
-  participant API as Ingestion API
+  participant API as Write-side ingest API
   participant H as Command Handler
   participant DB as PostgreSQL
   participant R as Outbox Relay
@@ -149,9 +148,10 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 6. CQRS
 
-- **Write side**: ingestion services receive commands (REST or simulated), validate domain
-  rules in `core/application` handlers dispatched via a `CommandBus`, persist write-model
-  state, and insert outbox rows in the same transaction.
+- **Write side**: the **`write-side`** service exposes ingest REST APIs; the thin **`datasource`**
+  service POSTs simulated/polled readings. Handlers in `core/application` (via `CommandBus`)
+  validate domain rules, persist write-model state where applicable, and insert outbox rows
+  in the same transaction.
 - **Read side**: `api-gateway` serves queries via a `QueryBus` against read-model
   projections (`energy_state_snapshot`, `alerts`, `turbine_state`) updated from Kafka.
 - Buses are thin interfaces (`CommandBus`, `QueryBus`, `CommandHandler<C>`,
@@ -178,8 +178,11 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 9. API & real-time gateway
 
-- Command APIs (write): `POST /api/ingest/weather`, `/api/ingest/turbine`, `/api/ingest/grid`.
-- Query APIs (read): `GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`.
+- Command APIs (write, on **`write-side`**): `POST /api/ingest/weather`, `/api/ingest/turbine`,
+  `/api/ingest/grid`. The **`datasource`** service forwards readings to these endpoints; it
+  does not expose ingest APIs itself.
+- Query APIs (read, on **`api-gateway`**, Phase 5): `GET /api/energy/latest`, `/api/alerts`,
+  `/api/turbines/{id}`.
 - WebSocket: gateway pushes energy-state updates and alerts to the Blazor UI.
 
 ## 10. Observability
@@ -192,13 +195,20 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 
 ## 11. Local deployment
 
-`infra/docker-compose.yml` brings up Kafka (KRaft), PostgreSQL 16, and a Kafka UI; a
-one-shot init applies topic creation (`create-topics.sh`). Flyway runs on service startup.
+`infra/docker-compose.yml` brings up Kafka (KRaft), PostgreSQL 16, Kafka UI, **`write-side`**
+(CQRS + outbox + DB), and **`datasource`** (single producer with weather poll + turbine/grid
+simulators). A one-shot init applies topic creation (`create-topics.sh`). Flyway runs on
+write-side startup.
+
+| Service | Port | Role |
+|---------|------|------|
+| write-side | 8080 | Ingest APIs, CQRS, outbox, PostgreSQL |
+| datasource | 8081 | External feed simulator (POSTs to write-side) |
 
 ## 12. Phased delivery
 
-1. **Infra & skeleton** (current): monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
-2. Write side + Outbox (command handlers, domain persistence, transactional outbox writes).
+1. **Infra & skeleton** — **DONE**: monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
+2. **Write side + Outbox** — **DONE**: `write-side` ingest APIs, command handlers, domain persistence, transactional outbox writes; single `datasource` producer.
 3. Outbox relay (idempotent batched publish, retries, DLQ).
 4. Stream processing (aggregation join, anomaly detection, decision engine).
 5. Query side + real-time gateway (read-model projections, query APIs, WebSocket push).

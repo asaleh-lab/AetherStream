@@ -19,20 +19,35 @@ See [HANDOFF.md](HANDOFF.md) for cross-session state and [specs/001-aetherstream
 - **Stream processing (Flink-style)** — aggregation joins, anomaly detection, and a decision engine produce energy state, alerts, and recommendations.
 - **Real-time UI** — Blazor Server + Radzen dashboard consuming REST and WebSocket from the gateway.
 
+## Two-part layout
+
+The repo deliberately separates **producers** from the **backbone** so the demo story is easy to follow:
+
+| Part | Modules | Responsibility |
+|------|---------|----------------|
+| **Data source** | `datasource` | One thin Spring Boot app simulating the outside world. No DB, domain, or CQRS. Three schedulers at real-world cadences POST JSON to write-side: weather **GET poll** (60s), turbine telemetry (5s), grid load (15s). |
+| **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | `application.yml`, JSON logging, CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
+
+```text
+datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Flink  -->  api-gateway  -->  UI
+```
+
 ## Repository layout
 
 ```text
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
-services/       ingestion-*, outbox-relay, api-gateway, stream-processor, decision-engine
+services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 8 + Radzen)
-infra/          docker-compose (Kafka KRaft, PostgreSQL, kafka-ui)
+infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, datasource)
+scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
 
 ## Prerequisites
 
-- JDK 21, Docker, .NET 8 SDK
-- Maven is optional — the repo includes `./mvnw`
+- **Reviewers / demo:** Docker only
+- **Java development:** JDK 21 (Maven via `./mvnw`)
+- **UI development:** .NET 8 SDK
 
 ## Build
 
@@ -44,34 +59,54 @@ specs/          spec-kit artifacts
 dotnet build ui/blazor-dashboard
 ```
 
-## Local infrastructure
+## Local stack (plug-and-play)
 
 ```powershell
-docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-- PostgreSQL: `localhost:5432` (db `aetherstream`, user/pass `aether`)
-- Kafka: `localhost:9092`
-- Kafka UI: http://localhost:8089
+Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), and **datasource**
+(auto-forwarding weather, turbine, and grid readings). Flyway runs on write-side startup.
 
-Flyway migrations run from the `infrastructure` module when Spring services start.
+| Container | Role | Port |
+|-----------|------|------|
+| `aether-postgres` | Database | 5432 |
+| `aether-kafka` | Event backbone (host) | 9094 |
+| `aether-kafka-ui` | Topic browser | 8089 |
+| `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
+| `aether-datasource` | External feed simulator | 8081 |
 
-## Service ports (skeleton defaults)
+Smoke-test write-side ingest endpoints:
 
-| Service            | Port |
-|--------------------|------|
-| api-gateway        | 8080 |
-| ingestion-weather  | 8081 |
-| ingestion-turbine  | 8082 |
-| ingestion-grid     | 8083 |
-| outbox-relay       | 8084 |
-| Blazor dashboard   | 5000 (launchSettings) |
+```powershell
+.\scripts\smoke-ingest.ps1 -SkipCommit
+```
+
+Or POST manually (example — turbine telemetry):
+
+```powershell
+Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/ingest/turbine `
+  -ContentType application/json `
+  -Body '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}'
+```
+
+Expect HTTP 202 with `eventId`, `correlationId`, and `status: PENDING` (outbox row written).
+
+Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
+
+## Other services (not yet in compose)
+
+| Service | Port |
+|---------|------|
+| outbox-relay | 8084 |
+| api-gateway | 8085 (planned; was 8080 before write-side) |
+| Blazor dashboard | 5000 |
 
 ## Status
 
-Phase 1 (infra & skeleton) scaffolds the monorepo, schema, topics, docker-compose, and UI
-shell. Business logic (command handlers, outbox relay, Flink topology, live WebSocket) lands
-in Phases 2–6. Track progress in [HANDOFF.md](HANDOFF.md) and [PR #1](https://github.com/asaleh-lab/AetherStream/pull/1).
+**Phase 2 (write side + outbox)** is complete: central **write-side** ingest APIs,
+transactional outbox, and a single **datasource** producer in docker-compose.
+**Phase 3** (outbox relay → Kafka) is next. Track progress in [HANDOFF.md](HANDOFF.md).
 
 ## License
 

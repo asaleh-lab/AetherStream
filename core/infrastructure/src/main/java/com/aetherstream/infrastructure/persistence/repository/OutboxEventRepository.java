@@ -3,6 +3,7 @@ package com.aetherstream.infrastructure.persistence.repository;
 import com.aetherstream.domain.outbox.OutboxStatus;
 import com.aetherstream.infrastructure.persistence.entity.OutboxEventEntity;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, UUID> {
 
     List<OutboxEventEntity> findByStatusOrderByCreatedAtAsc(OutboxStatus status, Limit limit);
+
+    Optional<OutboxEventEntity> findFirstByAggregateIdAndStatusOrderByCreatedAtDesc(
+            String aggregateId, OutboxStatus status);
 }

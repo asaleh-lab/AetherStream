@@ -31,6 +31,10 @@ public class TurbineStateEntity {
         // JPA
     }
 
+    public static TurbineStateEntity newInstance() {
+        return new TurbineStateEntity();
+    }
+
     public String getTurbineId() {
         return turbineId;
     }

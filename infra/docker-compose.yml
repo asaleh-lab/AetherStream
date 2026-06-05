@@ -1,5 +1,25 @@
-# Local development stack for AetherStream.
-# Usage: docker compose -f infra/docker-compose.yml up -d
+# Local stack for AetherStream.
+# Usage: docker compose -f infra/docker-compose.yml up -d --build
+#
+# Two-part layout:
+#   - write-side: CQRS ingest APIs, PostgreSQL, outbox (the main backbone demo)
+#   - datasource: single thin producer (weather poll + turbine + grid simulators)
+
+x-write-side-env: &write-side-env
+  AETHER_DB_URL: jdbc:postgresql://postgres:5432/aetherstream
+  AETHER_DB_USER: aether
+  AETHER_DB_PASSWORD: aether
+  AETHER_KAFKA_BOOTSTRAP: kafka:9092
+
+x-write-side-depends: &write-side-depends
+  postgres:
+    condition: service_healthy
+  kafka:
+    condition: service_healthy
+
+x-datasource-env: &datasource-env
+  AETHER_WRITE_SIDE_URL: http://write-side:8080
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -22,14 +42,14 @@ services:
     image: apache/kafka:3.8.0
     container_name: aether-kafka
     ports:
-      - "9092:9092"
+      - "9094:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -67,6 +87,54 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: aether-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+  # --- Write side (CQRS, domain, outbox, PostgreSQL) ---
+
+  write-side:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.write-side
+    image: aetherstream/write-side:local
+    container_name: aether-write-side
+    depends_on: *write-side-depends
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *write-side-env
+      SERVER_PORT: 8080
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    labels:
+      aetherstream.role: write-side
+
+  # --- Data source (thin producer: weather poll + turbine + grid simulators) ---
+
+  datasource:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.datasource
+    image: aetherstream/datasource:local
+    container_name: aether-datasource
+    depends_on:
+      write-side:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      <<: *datasource-env
+      SERVER_PORT: 8081
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    labels:
+      aetherstream.role: datasource
 
 volumes:
   aether-pgdata:

@@ -1,0 +1,22 @@
+# Build the write-side service (CQRS, domain, outbox, PostgreSQL).
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /workspace
+RUN apk add --no-cache bash
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+COPY core core
+COPY services/write-side services/write-side
+COPY services/datasource services/datasource
+COPY services/outbox-relay services/outbox-relay
+COPY services/api-gateway services/api-gateway
+COPY services/stream-processor services/stream-processor
+COPY services/decision-engine services/decision-engine
+RUN chmod +x mvnw \
+    && ./mvnw -pl services/write-side -am package -DskipTests -q
+
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache curl
+WORKDIR /app
+COPY --from=build /workspace/services/write-side/target/write-side.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

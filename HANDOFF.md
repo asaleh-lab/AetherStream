@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (end of session 2 — **Phase 1 complete**)
+Last updated: 2026-06-05 (Phase 2 cleanup audit — single datasource, docs synced)
 
 ## 1. What this project is
 
@@ -23,12 +23,22 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Reliability: Outbox pattern, at-least-once + idempotent consumers (not end-to-end EOS).
 - Process: **real spec-kit** (`.specify/`), **HANDOFF.md** for continuity.
 - Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
-- GitHub: **https://github.com/asaleh-lab/AetherStream** (public). Draft **PR #1** tracks Phase 1.
+- GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
+- **Two-part service layout** (clarity for demos and onboarding):
+  1. **`datasource`** — one thin Spring Boot producer (no PostgreSQL, domain, or CQRS). Runs three
+     independent schedulers at real-world intervals: weather **GET poll** (~60s), turbine telemetry
+     (~5s), grid load (~15s). Each POSTs JSON to write-side.
+  2. **Write-side backbone** (`write-side`, then `outbox-relay`, Flink jobs, `api-gateway`) —
+     `application.yml`, structured logging, CQRS command bus, domain, JPA, transactional outbox,
+     Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
+- **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
+  **write-side** + **datasource**. Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
-1. **Infra & skeleton** — **DONE** (this PR). Monorepo, build files, domain model, schema, topics, docker-compose, UI shell, README.
-2. **Write side + Outbox** — command handlers, domain persistence, transactional outbox writes.
+1. **Infra & skeleton** — **DONE** (PR #1).
+2. **Write side + Outbox** — **DONE**. Central `write-side` ingest APIs, command handlers,
+   domain persistence, transactional outbox writes; single `datasource` producer.
 3. **Outbox relay** — idempotent batched publish, retries, DLQ.
 4. **Stream processing (Flink)** — aggregation join, anomaly detection, decision engine.
 5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
@@ -36,84 +46,80 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `phase-1/infra-skeleton`  
-**PR:** https://github.com/asaleh-lab/AetherStream/pull/1 (draft — mark ready + merge to close Phase 1)
+**Branch:** `phase-2/write-side-outbox` (or successor)  
+**Base:** `main`
 
-### Phase 1 — complete
+### Phase 2 — complete
 
-- [x] Toolchain: Corretto JDK 21, Maven 3.9.9, uv, .NET 8, Docker, gh
-- [x] Git + spec-kit + constitution + SPEC + ARCHITECTURE
-- [x] Parent Maven reactor + `mvnw` + 10 modules (3 core + 5 Spring + 2 Flink)
-- [x] Domain model, CQRS bus interfaces, JPA entities/repos, Flyway `V1__init.sql`
-- [x] Spring Boot scaffolds: ingestion-weather/turbine/grid, outbox-relay, api-gateway
-- [x] Flink scaffolds: stream-processor, decision-engine (shade jars build)
-- [x] Kafka: `KafkaTopicsConfig` (7 topics) + `infra/kafka/create-topics.sh`
-- [x] `infra/docker-compose.yml` (Postgres 16, Kafka KRaft, kafka-ui, topic-init)
-- [x] Blazor dashboard shell + Radzen (Dashboard, Turbines, Alerts, Weather placeholders)
-- [x] README + verification green (see below)
+- [x] CQRS command bus, ingest handlers, outbox writes (on **write-side**)
+- [x] Testcontainers write-side integration test
+- [x] Correlation ID filter
+- [x] **Single `datasource` service** — weather poll + turbine + grid simulators POST to write-side
+- [x] **write-side** in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8080)
+- [x] [scripts/smoke-ingest.ps1](scripts/smoke-ingest.ps1) — compose up + POST to write-side
 
 ### Verified (2026-06-05)
 
 ```powershell
-.\mvnw.cmd -DskipTests package          # OK
-docker compose -f infra/docker-compose.yml config   # OK
-dotnet build ui/blazor-dashboard        # OK
+.\mvnw.cmd package                              # OK (includes WriteSideOutboxIntegrationTest)
+docker compose -f infra/docker-compose.yml config # OK
+.\scripts\smoke-ingest.ps1 -SkipCommit          # compose + ingest smoke (after image build)
 ```
 
-### Phase 2 — start here (next chat)
+### Phase 3 — start here (next chat)
 
-1. Merge PR #1 (or continue on `phase-2/write-side-outbox` branched from `main`).
-2. Implement `CommandBus`/`QueryBus` concrete dispatchers in `core/infrastructure`.
-3. Add ingestion command handlers: persist write model + `OutboxEvent.pending(...)` in one `@Transactional`.
-4. Wire `POST /api/ingest/weather|turbine|grid` on each ingestion service.
-5. Add simulated turbine/grid producers and weather API polling skeleton.
-6. Integration test with Testcontainers (Postgres): command -> outbox row, no Kafka yet.
+1. Open/merge Phase 2 PR if not done.
+2. Implement outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka.
+3. Add `outbox-relay` to docker-compose when relay is ready.
+4. Integration test with Testcontainers (Postgres + Kafka): outbox row -> Kafka topic.
 
-**Do not** implement relay or Flink logic in Phase 2 — that is Phases 3–4.
+**Do not** implement Flink stream processing in Phase 3 — that is Phase 4.
+
+### Later compose work (natural follow-on)
+
+- `outbox-relay`, `stream-processor`, `decision-engine`, `api-gateway`, Blazor UI — add to
+  compose as each phase lands (goal: full stack in one compose).
+- Optional compose **profile** `full` when all services are containerized (SC-004).
 
 ## 5. Environment notes / gotchas
 
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
-- Maven lives at `C:\Users\asama\tools\apache-maven-3.9.9` (User PATH). Prefer **`.\mvnw.cmd`** in-repo.
-- Fresh shells may need PATH refresh:
-  ```powershell
-  $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
-  $env:JAVA_HOME = [Environment]::GetEnvironmentVariable("JAVA_HOME","Machine")
-  ```
+- Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
-- Blazor template is **`dotnet new blazor --interactivity Server`** (not legacy `blazorserver`).
-- Service ports: gateway 8080, weather 8081, turbine 8082, grid 8083, relay 8084, kafka-ui 8089.
+- **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
+- **Compose services**: `write-side` (8080), `datasource` (8081).
+- Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
+- Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
+  `services/datasource/src/main/resources/application.yml`.
+- Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
+- First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
+- Stop host Java processes before compose if ports 8080–8081 are already taken.
 
 ## 6. Open items / blockers
 
-- None for Phase 1. PR #1 ready to mark **Ready for review** and merge when you are satisfied.
-- Phase 2 needs `docker compose up` for manual smoke tests once handlers exist.
+- PR #1 (Phase 1) may still be open on GitHub; merge when ready.
+- Outbox relay not yet in compose — Phase 3 deliverable.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 2 (write side + outbox).
+Continue AetherStream Phase 3 (outbox relay).
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-Branch from main: phase-2/write-side-outbox.
-Implement command handlers with transactional outbox writes per the architecture doc.
-Commit conventionally and push to asaleh-lab/AetherStream.
+Implement idempotent batched outbox relay with retries and DLQ per architecture doc.
+Add relay to docker-compose when ready. Commit conventionally and push to asaleh-lab/AetherStream.
 ```
 
-## 8. Commit history (Phase 1, chronological)
+## 8. Recent commits (chronological)
 
 ```text
-chore: initialize repository with .gitignore
-docs(spec): bootstrap spec-kit scaffolding for cursor-agent
-docs(spec): author AetherStream constitution; add .gitattributes
-docs(spec): add functional spec and architecture for AetherStream
-docs: add HANDOFF.md cross-session state and roadmap
-docs: record GitHub repo + draft PR in handoff
-build: add parent Maven reactor, wrapper, and core module skeletons
-feat(core): add domain model, CQRS bus + ports, JPA entities and repositories
-feat(services): scaffold Spring Boot services (ingestion x3, outbox-relay, api-gateway)
-feat(stream): scaffold Flink jobs (stream-processor, decision-engine) with shade packaging
-feat(db): add Flyway V1 schema (outbox_events, turbine_state, read models)
-feat(infra): add Kafka topic config and docker-compose stack
-feat(ui): scaffold Blazor Server dashboard with Radzen placeholders
-docs: add README and finalize Phase 1 handoff
+feat(core): add ingest commands, handlers, and outbox/turbine ports
+feat(infra): implement CQRS buses, JPA outbox adapters, and correlation filter
+feat(services): add ingest REST APIs and data producers for weather/turbine/grid
+test(infra): add Testcontainers write-side outbox integration test
+docs: update HANDOFF for Phase 2 completion
+infra(docker): containerize weather/turbine/grid data sources in compose
+refactor(services): split thin datasource producers from write-side backbone
+refactor(services): merge datasource feeds into single service with distinct intervals
+fix(docker): copy core modules for datasource Maven reactor
+docs: sync architecture and handoff for Phase 2 cleanup audit
 ```

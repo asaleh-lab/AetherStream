@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: datasource
+
+aetherstream:
+  write-side:
+    base-url: ${AETHER_WRITE_SIDE_URL:http://localhost:8080}
+  weather:
+    polling:
+      enabled: true
+    poll-interval-ms: 60000
+    api-url: https://api.open-meteo.com/v1/forecast
+  turbine:
+    simulation:
+      enabled: true
+    interval-ms: 5000
+  grid:
+    simulation:
+      enabled: true
+    interval-ms: 15000
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

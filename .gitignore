@@ -56,6 +56,7 @@ desktop.ini
 .env.*
 !.env.example
 *.local
+.local/
 secrets/
 
 # ---- Docker / data volumes ----
