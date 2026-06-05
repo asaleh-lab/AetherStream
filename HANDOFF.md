@@ -45,6 +45,7 @@ Done:
 - [x] Constitution authored.
 - [x] SPEC + ARCHITECTURE authored.
 - [x] HANDOFF.md created (this file).
+- [x] GitHub repo created + pushed; draft PR #1 opened.
 
 Not started (next session, in order):
 - [ ] Parent Maven reactor `pom.xml` (Java 21, Spring Boot + Flink BOMs) + Maven Wrapper + module dirs.
@@ -74,11 +75,10 @@ Not started (next session, in order):
 
 ## 6. Open items / blockers
 
-- **GitHub push deferred**: `gh` is installed (2.93.0) but NOT authenticated in the tool's
-  shell (no `hosts.yml`, no `GH_TOKEN`). Before pushing, ensure one of those exists, then:
-  ```powershell
-  gh repo create asaleh-lab/AetherStream --public --source . --remote origin --push
-  ```
+- **GitHub: live.** Repo at https://github.com/asaleh-lab/AetherStream (public). `main` and
+  `phase-1/infra-skeleton` pushed; draft PR #1 tracks Phase 1. `gh` authenticated as user
+  `asaleh-lab` (scopes: repo, workflow, read:org, gist). Push as we commit:
+  `git push`. Mark PR ready + merge at phase end; Phase 2 branches from `main`.
 
 ## 7. How to resume
 
