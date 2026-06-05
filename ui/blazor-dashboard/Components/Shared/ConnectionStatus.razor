@@ -1,0 +1,41 @@
+@using AetherStream.Dashboard.Services
+@inject DashboardState DashboardState
+@implements IDisposable
+
+<RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" AlignItems="AlignItems.Center" class="rz-mb-3">
+    <RadzenBadge BadgeStyle="@(_gatewayStyle)" Text="@(_gatewayLabel)" />
+    <RadzenBadge BadgeStyle="@(_realtimeStyle)" Text="@(_realtimeLabel)" />
+    @if (!string.IsNullOrWhiteSpace(DashboardState.LastError))
+    {
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-color-danger">@DashboardState.LastError</RadzenText>
+    }
+</RadzenStack>
+
+@code {
+    private BadgeStyle _gatewayStyle = BadgeStyle.Light;
+    private BadgeStyle _realtimeStyle = BadgeStyle.Light;
+    private string _gatewayLabel = "Gateway: …";
+    private string _realtimeLabel = "WebSocket: …";
+
+    protected override void OnInitialized()
+    {
+        DashboardState.Changed += OnStateChanged;
+        RefreshBadges();
+    }
+
+    private void OnStateChanged() => InvokeAsync(() =>
+    {
+        RefreshBadges();
+        StateHasChanged();
+    });
+
+    private void RefreshBadges()
+    {
+        _gatewayStyle = DashboardState.GatewayReachable ? BadgeStyle.Success : BadgeStyle.Danger;
+        _gatewayLabel = DashboardState.GatewayReachable ? "Gateway: connected" : "Gateway: offline";
+        _realtimeStyle = DashboardState.RealtimeConnected ? BadgeStyle.Success : BadgeStyle.Warning;
+        _realtimeLabel = DashboardState.RealtimeConnected ? "WebSocket: live" : "WebSocket: reconnecting";
+    }
+
+    public void Dispose() => DashboardState.Changed -= OnStateChanged;
+}
