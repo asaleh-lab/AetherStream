@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 6 merged — PR #6; platform complete)
+Last updated: 2026-06-05 (docker compose full-profile fixes on `fix/docker-compose-full-stack`)
 
 ## 1. What this project is
 
@@ -48,8 +48,20 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `main` (Phase 6 merged — all 6 phases complete)  
+**Branch:** `fix/docker-compose-full-stack` (docker compose deploy fixes; PR pending)  
+**Base:** `main` (Phase 6 merged — all 6 phases complete)  
 **Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+
+### Docker compose fixes (2026-06-05)
+
+- [x] **Blazor image build** — `.dockerignore` no longer excludes all of `ui/`; only
+  `ui/blazor-dashboard/bin` and `obj` are ignored so `Dockerfile.blazor-dashboard` can
+  `COPY` project sources.
+- [x] **stream-processor crash loop** — explicit `flink-connector-base` dependency (compile
+  scope) in shaded fat jar; `flink-connector-kafka` marks it `provided` for cluster deploys
+  but this job runs standalone via `java -jar`.
+- [x] **Spring Boot repackage** — `api-gateway` and `outbox-relay` POMs aligned with
+  `write-side` / `datasource` so Docker Maven builds produce executable jars reliably.
 
 ### Phase 6 — complete (merged PR #6)
 
@@ -66,6 +78,8 @@ $env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.11_10"
 .\mvnw.cmd -pl services/api-gateway,services/outbox-relay -am test   # OK
 dotnet build ui/blazor-dashboard/AetherStream.Dashboard.csproj         # OK
 docker compose -f infra/docker-compose.yml config                      # OK
+docker compose -f infra/docker-compose.yml --profile full up -d --build  # OK (all healthy)
+docker compose -f infra/docker-compose.yml --profile full ps -a        # stream-processor Up
 ```
 
 ### Phase 3 — complete (merged PR #3)
@@ -116,18 +130,27 @@ docker compose -f infra/docker-compose.yml config                      # OK
 - Stream processor env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_VIBRATION_THRESHOLD` (default 1.0),
   `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
 - Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
-- First `docker compose up --build` is slow (Maven inside images); subsequent runs use cache.
+- First `docker compose up --build` is slow (Maven + .NET inside images); subsequent runs use cache.
 - Stop host Java processes before compose if ports 8080–8081 or 8085–8086 are already taken.
+- **`.dockerignore`**: must not blanket-ignore `ui/` — Blazor dashboard Docker build needs
+  `ui/blazor-dashboard/` in the build context.
+- **Flink shaded jars** (`stream-processor`, `decision-engine`): declare `flink-connector-base`
+  explicitly; the Kafka connector's `provided` scope omits it from the fat jar.
+- **`kafka-init`** exits 0 after topic creation — expected; not a failure.
+- If a container "flashes" in Docker Desktop, check `docker logs <name>` — usually a crash
+  loop from a missing classpath dependency or failed health check.
 
 ## 6. Open items / blockers
 
 - All 6 phases merged to `main`.
+- `fix/docker-compose-full-stack` — open PR and merge docker compose deploy fixes.
 - `decision-engine` still skeleton (optimization recommendations — optional follow-up).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream Phase 6 is complete. Read HANDOFF.md for optional follow-ups (decision-engine).
+AetherStream Phase 6 is complete. Merge fix/docker-compose-full-stack if not on main yet.
+Read HANDOFF.md for optional follow-ups (decision-engine).
 ```
 
 ## 8. Recent commits (chronological)
@@ -152,4 +175,5 @@ feat(phase-3): outbox relay to Kafka with retries and DLQ  [PR #3 merged]
 feat(stream-processor): Flink aggregation join and anomaly detection  [PR #4 merged]
 feat(api-gateway): read-model projections, query APIs, and WebSocket push  [PR #5 merged]
 feat(blazor-dashboard): live UI wired to gateway REST and WebSocket  [PR #6 merged]
+fix(docker): restore full compose profile builds and stream-processor startup  [branch fix/docker-compose-full-stack]
 ```

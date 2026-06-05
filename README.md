@@ -38,7 +38,7 @@ datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Fli
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 10 + Radzen)
-infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, write-side, datasource)
+infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, JVM services, Blazor UI)
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -61,13 +61,23 @@ dotnet build ui/blazor-dashboard
 
 ## Local stack (plug-and-play)
 
+**Backend pipeline** (default compose):
+
 ```powershell
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
+**Full demo including Blazor UI**:
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile full up -d --build
+```
+
 Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
-(auto-forwarding weather, turbine, and grid readings), **outbox-relay**, **stream-processor**,
-and **api-gateway** (query APIs + WebSocket). Flyway runs on service startup.
+(auto-forwarding weather, turbine, and grid readings), **outbox-relay**, **stream-processor**
+(Flink aggregation + anomaly detection), and **api-gateway** (query APIs + WebSocket).
+With `--profile full`, also starts **blazor-dashboard** on port 8086. Flyway runs on
+service startup.
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -77,7 +87,9 @@ and **api-gateway** (query APIs + WebSocket). Flyway runs on service startup.
 | `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
 | `aether-datasource` | External feed simulator | 8081 |
 | `aether-outbox-relay` | Outbox → Kafka relay | 8084 |
+| `aether-stream-processor` | Flink job (no HTTP port) | — |
 | `aether-api-gateway` | Query APIs + WebSocket | 8085 |
+| `aether-blazor-dashboard` | Blazor + Radzen UI (`--profile full`) | 8086 |
 
 Smoke-test write-side ingest endpoints:
 
@@ -97,20 +109,25 @@ Expect HTTP 202 with `eventId`, `correlationId`, and `status: PENDING` (outbox r
 
 Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
 
-## Other services (not yet in compose)
+**Query APIs:** `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`  
+**WebSocket:** `ws://localhost:8085/ws/realtime`  
+**Blazor UI (compose):** `http://localhost:8086`  
+**Blazor UI (local dev):** `dotnet run --project ui/blazor-dashboard` (default port 5000)
 
-| Service | Port |
-|---------|------|
-| Blazor dashboard | 5000 |
+First `docker compose up --build` is slow (Maven and .NET builds inside images); later runs
+use the layer cache. On Windows PowerShell, chain commands with `;` not `&&`.
 
-Query APIs: `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`  
-WebSocket: `ws://localhost:8085/ws/realtime`
+Check container health:
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile full ps -a
+```
 
 ## Status
 
-**Phase 5 (query side + api-gateway)** is complete: read-model Kafka consumers, query REST
-APIs, WebSocket push, and `api-gateway` in docker-compose. **Phase 6** (Blazor UI) is next.
-Track progress in [HANDOFF.md](HANDOFF.md).
+All six delivery phases are complete: write-side + outbox, relay, Flink stream processing,
+API gateway, and Blazor dashboard in docker-compose. Optional follow-up: `decision-engine`
+optimization recommendations. Track session state in [HANDOFF.md](HANDOFF.md).
 
 ## License
 
