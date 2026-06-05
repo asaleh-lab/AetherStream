@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-05 (Phase 2 cleanup audit — single datasource, docs synced)
+Last updated: 2026-06-05 (Phase 3 outbox relay — batched publish, compose, integration test)
 
 ## 1. What this project is
 
@@ -39,14 +39,15 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 1. **Infra & skeleton** — **DONE** (PR #1).
 2. **Write side + Outbox** — **DONE**. Central `write-side` ingest APIs, command handlers,
    domain persistence, transactional outbox writes; single `datasource` producer.
-3. **Outbox relay** — idempotent batched publish, retries, DLQ.
+3. **Outbox relay** — **IN PROGRESS** on `phase-3/outbox-relay`. Idempotent batched publish,
+   retries, DLQ; compose service added.
 4. **Stream processing (Flink)** — aggregation join, anomaly detection, decision engine.
 5. **Query side + real-time gateway** — read-model projections, query APIs, WebSocket push.
 6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics.
 
 ## 4. Current status
 
-**Branch:** `phase-2/write-side-outbox` (or successor)  
+**Branch:** `phase-3/outbox-relay`  
 **Base:** `main`
 
 ### Phase 2 — complete
@@ -58,22 +59,28 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] **write-side** in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8080)
 - [x] [scripts/smoke-ingest.ps1](scripts/smoke-ingest.ps1) — compose up + POST to write-side
 
+### Phase 3 — in progress
+
+- [x] Outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka
+- [x] Retries across poll cycles; exhausted failures → `dead-letter-events` + `FAILED`
+- [x] `outbox-relay` in [infra/docker-compose.yml](infra/docker-compose.yml) (port 8084)
+- [x] Testcontainers integration test (Postgres + Kafka): outbox row → Kafka topic
+- [ ] Open PR and merge Phase 3
+
 ### Verified (2026-06-05)
 
 ```powershell
-.\mvnw.cmd package                              # OK (includes WriteSideOutboxIntegrationTest)
+.\mvnw.cmd package                              # OK (WriteSideOutbox + OutboxRelay integration tests)
 docker compose -f infra/docker-compose.yml config # OK
 .\scripts\smoke-ingest.ps1 -SkipCommit          # compose + ingest smoke (after image build)
 ```
 
-### Phase 3 — start here (next chat)
+### Phase 4 — start here (after Phase 3 PR)
 
-1. Open/merge Phase 2 PR if not done.
-2. Implement outbox relay: poll `PENDING` with `FOR UPDATE SKIP LOCKED`, batch publish to Kafka.
-3. Add `outbox-relay` to docker-compose when relay is ready.
-4. Integration test with Testcontainers (Postgres + Kafka): outbox row -> Kafka topic.
+1. Implement Flink stream processing: aggregation join, anomaly detection.
+2. Add `stream-processor` to docker-compose when ready.
 
-**Do not** implement Flink stream processing in Phase 3 — that is Phase 4.
+**Do not** implement query-side / api-gateway projections in Phase 4 — that is Phase 5.
 
 ### Later compose work (natural follow-on)
 
@@ -87,7 +94,7 @@ docker compose -f infra/docker-compose.yml config # OK
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{weather|turbine|grid}`
-- **Compose services**: `write-side` (8080), `datasource` (8081).
+- **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): weather poll 60s, turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
@@ -97,16 +104,15 @@ docker compose -f infra/docker-compose.yml config # OK
 
 ## 6. Open items / blockers
 
-- PR #1 (Phase 1) may still be open on GitHub; merge when ready.
-- Outbox relay not yet in compose — Phase 3 deliverable.
+- PR #2 (Phase 2) merged to `main`.
+- Phase 3 PR not yet opened.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-Continue AetherStream Phase 3 (outbox relay).
+Continue AetherStream Phase 3 (outbox relay) or open Phase 3 PR.
 Read HANDOFF.md, specs/001-aetherstream/, and .specify/memory/constitution.md.
-Implement idempotent batched outbox relay with retries and DLQ per architecture doc.
-Add relay to docker-compose when ready. Commit conventionally and push to asaleh-lab/AetherStream.
+If Phase 3 PR is merged, start Phase 4 (Flink stream processing).
 ```
 
 ## 8. Recent commits (chronological)
@@ -122,4 +128,9 @@ refactor(services): split thin datasource producers from write-side backbone
 refactor(services): merge datasource feeds into single service with distinct intervals
 fix(docker): copy core modules for datasource Maven reactor
 docs: sync architecture and handoff for Phase 2 cleanup audit
+feat(infra): add outbox polling, Kafka publisher, and topic router
+feat(services): implement outbox relay with retries and DLQ routing
+test(services): add Testcontainers outbox relay integration test
+infra(docker): add outbox-relay service to compose
+docs: update HANDOFF for Phase 3 outbox relay
 ```
