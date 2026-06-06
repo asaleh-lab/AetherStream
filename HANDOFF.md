@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-06 (weather stack removed — two-stream pipeline)
+Last updated: 2026-06-06 (observability profile: Grafana + Loki + Prometheus)
 
 ## 1. What this project is
 
@@ -33,7 +33,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
      Kafka relay, stream processing, query APIs. All ingest REST endpoints live on **write-side**.
 - **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` starts infra +
   **write-side** + **datasource** + **outbox-relay** + **stream-processor** + **api-gateway**.
-  Add `--profile full` for the **Blazor dashboard** (port 8086). Reviewers need Docker only.
+  Add `--profile full` for the **Blazor dashboard** (port 8086). Add `--profile observability`
+  for **Grafana + Loki + Prometheus** (port 3000). Reviewers need Docker only.
 
 ## 3. Roadmap (6 phases)
 
@@ -48,9 +49,21 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `refactor/remove-weather-stack` (weather removed; two-stream pipeline)  
+**Branch:** `feat/observability-profile`  
 **Base:** `main` (Phase 6 merged — all 6 phases complete)  
 **Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+
+### Observability profile (2026-06-06)
+
+- [x] Optional compose profile `observability`: Grafana (3000), Loki (3100), Prometheus (9090), Promtail
+- [x] Config under `infra/observability/`; Grafana datasources auto-provisioned
+- [x] Prometheus scrapes `write-side`, `datasource`, `outbox-relay`, `api-gateway` at `/actuator/prometheus`
+- [x] Promtail ships `aether-*` container stdout to Loki (JSON logs include `correlationId`)
+- [x] `micrometer-registry-prometheus` on infrastructure + datasource for scrape-ready metrics
+- [x] Pre-built Grafana dashboard **AetherStream Logs**; Promtail JSON pipeline for Java services
+- [x] `IngestAccessLogFilter` on write-side — one INFO line per `/api/ingest` request (visible in Loki)
+- **Grafana login (local demo):** `admin` / `aether`
+- **If Explore looks empty:** use `{container="aether-datasource"}` and time range **Last 15 minutes**
 
 ### Weather removal (2026-06-06)
 
@@ -110,6 +123,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
   `/api/turbines/{id}`
 - **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
 - **Blazor UI**: `http://localhost:8086` (compose `--profile full`) or `dotnet run --project ui/blazor-dashboard`
+- **Grafana** (logs + metrics): `http://localhost:3000` (compose `--profile observability`, login `admin`/`aether`)
+- **Prometheus**: `http://localhost:9090/targets` (compose `--profile observability`)
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
   `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
@@ -131,14 +146,14 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 6. Open items / blockers
 
-- All 6 phases merged to `main`.
-- `decision-engine` still skeleton (optimization recommendations — optional follow-up).
+- Open PR for `feat/observability-profile` when ready.
+- `decision-engine` still skeleton (optimization recommendations — optional follow-up on separate branch).
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream Phase 6 is complete. Weather stack removed — two-stream pipeline (turbine + grid).
-Read HANDOFF.md for optional follow-ups (decision-engine).
+AetherStream observability profile is on feat/observability-profile. Read HANDOFF.md.
+Optional follow-up: decision-engine on feat/decision-engine.
 ```
 
 ## 8. Recent commits (chronological)

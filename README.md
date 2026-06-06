@@ -38,7 +38,7 @@ datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Fli
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 10 + Radzen)
-infra/          docker-compose, Dockerfiles (Kafka KRaft, PostgreSQL, JVM services, Blazor UI)
+infra/          docker-compose, Dockerfiles, observability configs (Grafana/Loki/Prometheus)
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -73,6 +73,18 @@ docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml --profile full up -d --build
 ```
 
+**Observability stack** (Grafana + Loki + Prometheus — free, open source):
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile observability up -d --build
+```
+
+**Full demo with UI and observability**:
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
+```
+
 Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
 (auto-forwarding turbine and grid readings), **outbox-relay**, **stream-processor**
 (Flink aggregation + anomaly detection), and **api-gateway** (query APIs + WebSocket).
@@ -90,6 +102,53 @@ service startup.
 | `aether-stream-processor` | Flink job (no HTTP port) | — |
 | `aether-api-gateway` | Query APIs + WebSocket | 8085 |
 | `aether-blazor-dashboard` | Blazor + Radzen UI (`--profile full`) | 8086 |
+| `aether-grafana` | Logs + metrics UI (`--profile observability`) | 3000 |
+| `aether-prometheus` | Metrics scraper (`--profile observability`) | 9090 |
+| `aether-loki` | Log store (`--profile observability`) | 3100 |
+
+### Observability (optional `--profile observability`)
+
+Open-source stack for log search and service metrics — no license cost when self-hosted:
+
+| Tool | Role |
+|------|------|
+| **Grafana** | Web UI for dashboards and log search |
+| **Loki** | Collects and stores container stdout (JSON logs from Java services) |
+| **Promtail** | Ships Docker container logs to Loki |
+| **Prometheus** | Scrapes Spring Boot `/actuator/prometheus` every 15s |
+
+**Grafana:** `http://localhost:3000` — login `admin` / `aether` (local demo only).
+
+Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
+
+**Explore logs (Grafana → Explore → Loki)** — start with a broad query, then narrow down:
+
+```logql
+# Start here — all application containers (should always show lines)
+{container=~"aether-datasource|aether-write-side|aether-outbox-relay|aether-api-gateway"}
+
+# Datasource simulator (most active — logs every 5–15s)
+{container="aether-datasource"}
+
+# Write-side ingest with correlation id (after rebuild with IngestAccessLogFilter)
+{container="aether-write-side"} | json | correlationId != ""
+```
+
+Set the time range to **Last 15 minutes** if the view looks empty.
+
+**Troubleshooting empty Loki results:** metrics and logs are separate systems. If Prometheus
+has data but Explore looks empty, you are usually filtering too aggressively (e.g. the
+`correlationId` filter before ingest logging existed) or the time range is too narrow.
+Try `{container="aether-datasource"}` first — it logs continuously.
+
+**Explore metrics (Grafana → Explore → Prometheus):**
+
+```promql
+rate(http_server_requests_seconds_count{job="spring-services"}[1m])
+jvm_memory_used_bytes{job="spring-services"}
+```
+
+Prometheus targets UI: `http://localhost:9090/targets` (all four Spring services should be **UP**).
 
 Smoke-test write-side ingest endpoints:
 
