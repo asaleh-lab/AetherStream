@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-06 (observability profile: Grafana + Loki + Prometheus)
+Last updated: 2026-06-06 (decision-engine + observability profile merged)
 
 ## 1. What this project is
 
@@ -49,9 +49,19 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `feat/observability-profile`  
-**Base:** `main` (Phase 6 merged — all 6 phases complete)  
-**Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+**Branch:** `main`  
+**Base:** Phase 6 complete; observability profile merged (PR #9); decision-engine pending merge (PR #10)
+
+### Decision engine (2026-06-06)
+
+- [x] Flink `decision-engine`: consume `energy-state-events`, apply optimization rules, emit `recommendations`
+- [x] Rules: low-efficiency turbine/load suggestion; surplus-capacity grid-balancing suggestion
+- [x] Read model: `recommendations` table (Flyway V2), gateway Kafka consumer, idempotent upsert
+- [x] Query API: `GET /api/recommendations`; WebSocket push type `recommendation`
+- [x] Blazor **Recommendations** page + nav item; bootstrap + realtime wiring
+- [x] `decision-engine` service in [infra/docker-compose.yml](infra/docker-compose.yml)
+- [x] Unit tests: `OptimizationRulesTest`, `RecommendationFunctionTest`
+- [x] Gateway integration test extended for recommendations topic projection
 
 ### Observability profile (2026-06-06)
 
@@ -100,7 +110,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] Event-time watermarks with 5s allowed lateness
 - [x] `stream-processor` in [infra/docker-compose.yml](infra/docker-compose.yml)
 - [x] Pipeline + operator harness tests (aggregation, anomaly, envelope parsing)
-- [ ] Decision engine (`decision-engine` skeleton → optimization recommendations; deferred)
+- [x] Decision engine (`decision-engine`): optimization recommendations from energy state
 
 ### Phase 5 — complete (merged PR #5)
 
@@ -120,19 +130,22 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{turbine|grid}`
 - **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
-  `/api/turbines/{id}`
+  `/api/recommendations`, `/api/turbines/{id}`
 - **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
 - **Blazor UI**: `http://localhost:8086` (compose `--profile full`) or `dotnet run --project ui/blazor-dashboard`
 - **Grafana** (logs + metrics): `http://localhost:3000` (compose `--profile observability`, login `admin`/`aether`)
 - **Prometheus**: `http://localhost:9090/targets` (compose `--profile observability`)
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
-  `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port).
+  `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port),
+  `decision-engine` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
 - Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
 - Stream processor env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_VIBRATION_THRESHOLD` (default 1.0),
   `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
+- Decision engine env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_EFFICIENCY_TARGET` (default 0.85),
+  `AETHER_KAFKA_OFFSET_RESET`.
 - Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
 - First `docker compose up --build` is slow (Maven + .NET inside images); subsequent runs use cache.
 - Stop host Java processes before compose if ports 8080–8081 or 8085–8086 are already taken.
@@ -146,14 +159,14 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 6. Open items / blockers
 
-- Open PR for `feat/observability-profile` when ready.
-- `decision-engine` still skeleton (optimization recommendations — optional follow-up on separate branch).
+- Existing Postgres volumes need Flyway V2 migration (`recommendations` table) on next `api-gateway` / `write-side` startup.
+- Run `kafka-init` once if the `recommendations` topic is missing after upgrade.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream observability profile is on feat/observability-profile. Read HANDOFF.md.
-Optional follow-up: decision-engine on feat/decision-engine.
+AetherStream observability (PR #9) and decision-engine (PR #10) merged. Read HANDOFF.md.
+Full demo: docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
 ```
 
 ## 8. Recent commits (chronological)
@@ -180,4 +193,6 @@ feat(api-gateway): read-model projections, query APIs, and WebSocket push  [PR #
 feat(blazor-dashboard): live UI wired to gateway REST and WebSocket  [PR #6 merged]
 fix(docker): restore full compose profile builds and stream-processor startup  [PR merged]
 refactor: remove unused weather ingest pipeline and UI  [branch refactor/remove-weather-stack]
+feat(infra): observability profile Grafana Loki Prometheus  [PR #9 merged]
+feat(decision-engine): optimization recommendations pipeline  [PR #10 merged]
 ```

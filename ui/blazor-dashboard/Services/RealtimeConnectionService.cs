@@ -105,6 +105,13 @@ public sealed class RealtimeConnectionService(
                         dashboardState.PrependAlert(alert);
                     }
                     break;
+                case "recommendation":
+                    var recommendation = payload.Deserialize<RecommendationDto>(JsonOptions);
+                    if (recommendation is not null)
+                    {
+                        dashboardState.PrependRecommendation(recommendation);
+                    }
+                    break;
                 default:
                     logger.LogDebug("Ignoring unknown realtime message type {Type}", type);
                     break;

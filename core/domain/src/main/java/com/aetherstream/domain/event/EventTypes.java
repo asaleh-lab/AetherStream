@@ -7,6 +7,7 @@ public final class EventTypes {
     public static final String GRID_LOAD_RECORDED = "GridLoadRecorded";
     public static final String ENERGY_STATE_COMPUTED = "EnergyStateComputed";
     public static final String ALERT_RAISED = "AlertRaised";
+    public static final String RECOMMENDATION_ISSUED = "RecommendationIssued";
 
     private EventTypes() {
     }

@@ -1,0 +1,52 @@
+@page "/recommendations"
+@rendermode InteractiveServer
+@using AetherStream.Dashboard.Models
+@using AetherStream.Dashboard.Services
+@inject DashboardState DashboardState
+@inject DashboardDisplay Display
+@implements IDisposable
+
+<PageTitle>Recommendations - AetherStream</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">Optimization recommendations</RadzenText>
+<ConnectionStatus />
+
+@if (_recommendations.Count == 0)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Lighter">
+        No recommendations yet — the decision engine evaluates energy state as it arrives.
+    </RadzenAlert>
+}
+else
+{
+    @foreach (var recommendation in _recommendations)
+    {
+        <RadzenCard class="rz-mb-2">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@recommendation.Region" />
+                <RadzenText TextStyle="TextStyle.Body1">@recommendation.Suggestion</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">@Display.FormatTimestamp(recommendation.Timestamp)</RadzenText>
+            </RadzenStack>
+        </RadzenCard>
+    }
+}
+
+@code {
+    private IReadOnlyList<RecommendationDto> _recommendations = [];
+
+    protected override void OnInitialized()
+    {
+        DashboardState.Changed += OnStateChanged;
+        Refresh();
+    }
+
+    private void OnStateChanged() => InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private void Refresh() => _recommendations = DashboardState.Recommendations;
+
+    public void Dispose() => DashboardState.Changed -= OnStateChanged;
+}
