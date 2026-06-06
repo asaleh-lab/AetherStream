@@ -1,6 +1,6 @@
 # Architecture: AetherStream
 
-**Status**: Draft | **Created**: 2026-06-05 | **Constitution**: v1.0.0
+**Status**: Complete | **Created**: 2026-06-05 | **Constitution**: v1.0.0
 
 This document defines the system architecture that realizes [spec.md](spec.md). It is the
 authoritative reference for module boundaries, Kafka topics, the Outbox design, CQRS flow,
@@ -245,7 +245,7 @@ standalone fat jars).
 1. **Infra & skeleton** — **DONE**: monorepo, build files, domain model, topics + schema, docker-compose, spec-kit + git + handoff.
 2. **Write side + Outbox** — **DONE**: `write-side` ingest APIs, command handlers, domain persistence, transactional outbox writes; single `datasource` producer.
 3. **Outbox relay** — **DONE**: idempotent batched publish, retries, DLQ.
-4. **Stream processing** — **DONE**: aggregation join + anomaly detection (`stream-processor`); `decision-engine` skeleton deferred.
+4. **Stream processing** — **DONE**: aggregation join + anomaly detection (`stream-processor`); optimization recommendations (`decision-engine`).
 5. **Query side + real-time gateway** — **DONE**: read-model projections, query APIs, WebSocket push.
 6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **DONE**.
 

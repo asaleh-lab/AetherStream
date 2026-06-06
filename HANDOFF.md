@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-06 (decision-engine + observability profile merged)
+Last updated: 2026-06-06 (full stack verified — recommendations live on :8086)
 
 ## 1. What this project is
 
@@ -41,8 +41,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 1. **Infra & skeleton** — **DONE** (PR #1).
 2. **Write side + Outbox** — **DONE** (PR #2).
 3. **Outbox relay** — **DONE** (PR #3).
-4. **Stream processing (Flink)** — **DONE** (PR #4). Aggregation join + anomaly detection;
-   `decision-engine` still skeleton (defer or fold into later phase).
+4. **Stream processing (Flink)** — **DONE** (PR #4 + PR #10). Aggregation join, anomaly
+   detection, and `decision-engine` optimization recommendations.
 5. **Query side + real-time gateway** — **DONE** (PR #5). Read-model Kafka consumers,
    query REST APIs, WebSocket push, compose service.
 6. **Blazor UI live + Testcontainers tests + correlation-id propagation + metrics** — **DONE** (PR #6).
@@ -50,7 +50,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 ## 4. Current status
 
 **Branch:** `main`  
-**Base:** Phase 6 complete; observability profile merged (PR #9); decision-engine pending merge (PR #10)
+**Base:** All six phases complete. Observability profile (PR #9) and decision-engine (PR #10)
+merged. Full compose demo verified end-to-end.
 
 ### Decision engine (2026-06-06)
 
@@ -62,6 +63,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] `decision-engine` service in [infra/docker-compose.yml](infra/docker-compose.yml)
 - [x] Unit tests: `OptimizationRulesTest`, `RecommendationFunctionTest`
 - [x] Gateway integration test extended for recommendations topic projection
+- [x] **E2E verified:** full stack (`--profile full --profile observability`) healthy;
+  Recommendations page on `http://localhost:8086` shows live optimization suggestions
 
 ### Observability profile (2026-06-06)
 
@@ -79,7 +82,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 - [x] Removed weather poll producer, ingest CQRS path, `weather-events` topic wiring, Flink union branch
 - [x] Removed Weather UI page and nav item
-- [x] Pipeline is now **turbine + grid → Flink join → energy state + alerts → dashboard**
+- [x] Pipeline is now **turbine + grid → Flink join → energy state + alerts + recommendations → dashboard**
 - **Tradeoff:** Simpler demo (no unused third stream). Weather can be reintroduced later as a focused feature.
 
 ### Docker compose fixes (2026-06-05)
@@ -127,7 +130,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
 - Prefer **`.\mvnw.cmd`** for local Java dev; **`docker compose`** for reviewer/demo path.
 - Set **`JAVA_HOME`** to JDK 21 if `mvnw` fails (e.g. Amazon Corretto 21).
-- Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
+- Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`,
+  `V2__recommendations.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{turbine|grid}`
 - **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
   `/api/recommendations`, `/api/turbines/{id}`
@@ -159,14 +163,18 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 6. Open items / blockers
 
-- Existing Postgres volumes need Flyway V2 migration (`recommendations` table) on next `api-gateway` / `write-side` startup.
-- Run `kafka-init` once if the `recommendations` topic is missing after upgrade.
+None — feature-complete for the portfolio demo.
+
+**Upgrade note (pre-PR #10 volumes only):** if upgrading an old Postgres volume, Flyway V2
+(`recommendations` table) applies on `api-gateway` / `write-side` startup; re-run compose so
+`kafka-init` creates the `recommendations` topic. Fresh `docker compose up --build` handles both.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream observability (PR #9) and decision-engine (PR #10) merged. Read HANDOFF.md.
+AetherStream is feature-complete on main. Read HANDOFF.md.
 Full demo: docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
+Dashboard: http://localhost:8086 (energy, alerts, turbines, recommendations)
 ```
 
 ## 8. Recent commits (chronological)

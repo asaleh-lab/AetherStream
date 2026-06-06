@@ -87,9 +87,9 @@ docker compose -f infra/docker-compose.yml --profile full --profile observabilit
 
 Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
 (auto-forwarding turbine and grid readings), **outbox-relay**, **stream-processor**
-(Flink aggregation + anomaly detection), and **api-gateway** (query APIs + WebSocket).
-With `--profile full`, also starts **blazor-dashboard** on port 8086. Flyway runs on
-service startup.
+(Flink aggregation + anomaly detection), **decision-engine** (optimization recommendations),
+and **api-gateway** (query APIs + WebSocket). With `--profile full`, also starts
+**blazor-dashboard** on port 8086. Flyway runs on service startup.
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -100,6 +100,7 @@ service startup.
 | `aether-datasource` | External feed simulator | 8081 |
 | `aether-outbox-relay` | Outbox → Kafka relay | 8084 |
 | `aether-stream-processor` | Flink job (no HTTP port) | — |
+| `aether-decision-engine` | Flink job: optimization recommendations (no HTTP port) | — |
 | `aether-api-gateway` | Query APIs + WebSocket | 8085 |
 | `aether-blazor-dashboard` | Blazor + Radzen UI (`--profile full`) | 8086 |
 | `aether-grafana` | Logs + metrics UI (`--profile observability`) | 3000 |
@@ -168,7 +169,7 @@ Expect HTTP 202 with `eventId`, `correlationId`, and `status: PENDING` (outbox r
 
 Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
 
-**Query APIs:** `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`  
+**Query APIs:** `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/recommendations`, `/api/turbines/{id}`  
 **WebSocket:** `ws://localhost:8085/ws/realtime`  
 **Blazor UI (compose):** `http://localhost:8086`  
 **Blazor UI (local dev):** `dotnet run --project ui/blazor-dashboard` (default port 5000)
@@ -184,9 +185,10 @@ docker compose -f infra/docker-compose.yml --profile full ps -a
 
 ## Status
 
-All six delivery phases are complete: write-side + outbox, relay, Flink stream processing,
-API gateway, and Blazor dashboard in docker-compose. Optional follow-up: `decision-engine`
-optimization recommendations. Track session state in [HANDOFF.md](HANDOFF.md).
+Feature-complete for the portfolio demo. All six delivery phases are done: write-side + outbox,
+relay, Flink stream processing (aggregation, anomaly detection, decision-engine recommendations),
+API gateway, Blazor dashboard, and optional observability profile — all in docker-compose.
+Track session state in [HANDOFF.md](HANDOFF.md).
 
 ## License
 

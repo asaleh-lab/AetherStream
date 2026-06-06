@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-05
 
-**Status**: Draft
+**Status**: Complete
 
 **Input**: Portfolio brief: a production-shaped, event-driven streaming platform for wind
 energy monitoring built on Kafka + CQRS + Outbox + Flink-style stream processing (JVM),
