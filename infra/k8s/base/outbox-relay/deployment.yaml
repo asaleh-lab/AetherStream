@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outbox-relay
+  namespace: aether
+  labels:
+    app: outbox-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: outbox-relay
+  template:
+    metadata:
+      labels:
+        app: outbox-relay
+    spec:
+      serviceAccountName: aether-workload
+      containers:
+        - name: outbox-relay
+          image: aetherstream/outbox-relay:latest
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: aether-env
+            - secretRef:
+                name: aether-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8084"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi

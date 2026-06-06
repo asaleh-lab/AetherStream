@@ -161,7 +161,33 @@ merged. Full compose demo verified end-to-end.
 - If a container "flashes" in Docker Desktop, check `docker logs <name>` — usually a crash
   loop from a missing classpath dependency or failed health check.
 
-## 6. Open items / blockers
+## 6. Azure deployment (Terraform + CD)
+
+Infrastructure-as-code and CD for a **cost-optimized** Azure demo (single VNet, public App Service front):
+
+- **Terraform:** [infra/terraform/](infra/terraform/) — bootstrap, `environments/demo`, modules
+  (networking, security, data, compute-aks, compute-appservice, observability)
+- **Kubernetes:** [infra/k8s/](infra/k8s/) — Kustomize base + `overlays/demo` (mirrors compose)
+- **CD:** `.github/workflows/infra-cd.yml` (Terraform) + `app-cd.yml` (images + AKS + App Service)
+- **Docs:** [infra/terraform/README.md](infra/terraform/README.md),
+  [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md),
+  [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)
+
+**Omitted for cost & privacy:** Application Gateway, WAF, private endpoints, hub-spoke networking,
+and premium SKUs (see architecture diagram in [README.md](README.md#azure-deployment-terraform)).
+
+**Exposure model:** **Blazor** and **Grafana** are public App Service HTTPS URLs. **api-gateway**
+and all backend/streaming services run on private AKS internal LoadBalancers; Blazor reaches
+api-gateway server-side via `api-gateway.aether-demo.internal:8085` (VNet integration).
+
+**Bootstrap once:** `infra/terraform/bootstrap` → GitHub OIDC secrets → `environments/demo` apply.
+
+**Demo URLs (after apply):** `terraform output dashboard_url` and `terraform output ops_url`
+(public `*.azurewebsites.net` — no hosts file).
+
+**Budget:** subscription alert `aetherstream-100` at $80 / $100 actual spend.
+
+## 7. Open items / blockers
 
 None — feature-complete for the portfolio demo.
 
@@ -169,7 +195,7 @@ None — feature-complete for the portfolio demo.
 (`recommendations` table) applies on `api-gateway` / `write-side` startup; re-run compose so
 `kafka-init` creates the `recommendations` topic. Fresh `docker compose up --build` handles both.
 
-## 7. How to resume (copy into a new chat)
+## 8. How to resume (copy into a new chat)
 
 ```
 AetherStream is feature-complete on main. Read HANDOFF.md.
@@ -177,7 +203,7 @@ Full demo: docker compose -f infra/docker-compose.yml --profile full --profile o
 Dashboard: http://localhost:8086 (energy, alerts, turbines, recommendations)
 ```
 
-## 8. Recent commits (chronological)
+## 9. Recent commits (chronological)
 
 ```text
 feat(core): add ingest commands, handlers, and outbox/turbine ports

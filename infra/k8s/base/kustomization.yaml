@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aether
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap-env.yaml
+  - secret-env.yaml
+  - kafka-init-configmap.yaml
+  - kafka/service.yaml
+  - kafka/statefulset.yaml
+  - kafka-init-job.yaml
+  - write-side/deployment.yaml
+  - write-side/service.yaml
+  - datasource/deployment.yaml
+  - datasource/service.yaml
+  - outbox-relay/deployment.yaml
+  - outbox-relay/service.yaml
+  - api-gateway/deployment.yaml
+  - api-gateway/service.yaml
+  - stream-processor/deployment.yaml
+  - decision-engine/deployment.yaml
+  - prometheus/deployment.yaml

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: datasource
+  namespace: aether
+spec:
+  selector:
+    app: datasource
+  ports:
+    - port: 8081
+      targetPort: 8081

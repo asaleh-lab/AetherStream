@@ -1,14 +1,34 @@
 using AetherStream.Dashboard.Components;
 using AetherStream.Dashboard.Services;
+using Azure.Extensions.AspNetCore.DataProtection.Blobs;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "dataprotection-keys");
 Directory.CreateDirectory(dataProtectionKeysPath);
-builder.Services.AddDataProtection()
+var dataProtection = builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+
+var blobConnectionString = builder.Configuration["DataProtection:BlobConnectionString"];
+var blobContainerName = builder.Configuration["DataProtection:BlobContainerName"];
+var blobBlobName = builder.Configuration["DataProtection:BlobName"] ?? "keys.xml";
+if (!string.IsNullOrWhiteSpace(blobConnectionString) && !string.IsNullOrWhiteSpace(blobContainerName))
+{
+    dataProtection.PersistKeysToAzureBlobStorage(blobConnectionString, blobContainerName, blobBlobName);
+}
+
+if (string.Equals(builder.Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -28,6 +48,11 @@ builder.Services.AddHttpClient("Gateway", client =>
 });
 
 var app = builder.Build();
+
+if (string.Equals(builder.Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+{
+    app.UseForwardedHeaders();
+}
 
 if (!app.Environment.IsDevelopment())
 {

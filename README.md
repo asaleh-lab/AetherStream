@@ -38,7 +38,7 @@ datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Fli
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 10 + Radzen)
-infra/          docker-compose, Dockerfiles, observability configs (Grafana/Loki/Prometheus)
+infra/          docker-compose, Dockerfiles, observability configs; Terraform + K8s for Azure
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -182,6 +182,83 @@ Check container health:
 ```powershell
 docker compose -f infra/docker-compose.yml --profile full ps -a
 ```
+
+## Azure deployment (Terraform)
+
+The same demo stack can run on Azure with **lowest viable SKUs** (~**$67/mo** Infracost baseline;
+see [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)). Full runbook:
+[infra/terraform/README.md](infra/terraform/README.md).
+
+### Architecture
+
+```mermaid
+flowchart TB
+  User([User / reviewer])
+
+  subgraph Azure["Azure subscription — AetherStream"]
+    subgraph Public["Public (demo cost model)"]
+      Blazor["App Service — Blazor<br/>B1 · *.azurewebsites.net"]
+      Grafana["App Service — Grafana<br/>B1 · *.azurewebsites.net"]
+    end
+
+    subgraph VNet["VNet aether-demo-vnet"]
+      subgraph AKS["AKS — 1× B2als_v2 node"]
+        ILB["Internal LoadBalancers"]
+        GW["api-gateway"]
+        Back["write-side · relay · Kafka · Flink"]
+        ILB --> GW
+        GW --- Back
+      end
+      DNS["Private DNS<br/>*.aether-demo.internal"]
+    end
+
+    subgraph Platform["Shared platform"]
+      PG[("PostgreSQL<br/>B_Standard_B1ms")]
+      ACR["ACR Basic"]
+      KV["Key Vault"]
+      LAW["Log Analytics<br/>1-day retention"]
+    end
+
+    GH["GitHub Actions<br/>OIDC → deploy"]
+  end
+
+  User -->|HTTPS| Blazor
+  User -->|HTTPS| Grafana
+  Blazor -->|VNet integration + private DNS| GW
+  Grafana -->|VNet integration + private DNS| ILB
+  AKS --> PG
+  AKS --> ACR
+  Blazor --> ACR
+  Grafana --> ACR
+  GH --> ACR
+  GH --> AKS
+  GH --> Blazor
+  GH --> Grafana
+```
+
+After `terraform apply`, open `terraform output dashboard_url` and `ops_url` — no hosts file
+or Application Gateway required.
+
+### Deliberately omitted (cost & privacy)
+
+This demo Terraform **does not** deploy several production-hardening controls that appeared in
+early hub-spoke designs. They were removed to stay within starter credits and to keep the
+portfolio environment simple to tear down:
+
+| Omitted | Why |
+|---------|-----|
+| **Application Gateway** | ~$200/mo fixed cost; App Service public URLs are the front door instead |
+| **WAF (Web Application Firewall)** | Requires AGW WAF_v2 tier; not justified for a personal demo |
+| **Private endpoints** (App Service, PG, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity used instead |
+| **Hub-spoke VNet peering** | Single VNet is enough for this scale |
+| **Premium ACR / P1v3 App Service** | Minimum tiers that support the workload at lowest price |
+
+**Privacy trade-off:** Blazor and Grafana are reachable on public `*.azurewebsites.net` URLs.
+Backend streaming services (api-gateway, Kafka, Flink, write-side) stay on **internal AKS
+LoadBalancers** — not exposed to the Internet. For a production deployment you would reintroduce
+AGW + WAF, private endpoints, and network isolation; see git history / earlier design notes.
+
+**Budget alert:** subscription budget `aetherstream-100` emails at $80 and $100 actual spend.
 
 ## Status
 
