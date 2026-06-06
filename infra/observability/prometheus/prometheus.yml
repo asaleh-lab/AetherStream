@@ -1,0 +1,16 @@
+# Scrapes Spring Boot Actuator /actuator/prometheus on JVM services.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: spring-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - write-side:8080
+          - datasource:8081
+          - outbox-relay:8084
+          - api-gateway:8085
+        labels:
+          stack: aetherstream

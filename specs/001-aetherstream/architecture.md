@@ -190,6 +190,9 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
   propagated as a Kafka header, and restored into MDC by each consumer/stream operator.
 - Spring Boot Actuator health + metrics on every Spring deployable; Flink jobs expose their
   own metrics.
+- Optional local stack (`--profile observability` in compose): **Grafana** (UI), **Loki** (logs),
+  **Promtail** (Docker log shipper), **Prometheus** (scrapes `/actuator/prometheus` on JVM services).
+  Config lives in `infra/observability/`. All components are open source and free to self-host.
 
 ## 11. Local deployment
 
@@ -197,8 +200,9 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 Kafka UI, **`write-side`** (CQRS + outbox + DB), **`datasource`** (turbine/grid
 simulators), **`outbox-relay`**, **`stream-processor`** (Flink aggregation + anomaly detection),
 and **`api-gateway`** (read-model projections, query APIs, WebSocket). Add compose profile
-`full` for **`blazor-dashboard`**. A one-shot `kafka-init` container applies topic creation
-(`create-topics.sh`) and exits 0. Flyway runs on write-side startup.
+`full` for **`blazor-dashboard`**. Add profile `observability` for **Grafana + Loki +
+Prometheus + Promtail** (logs and metrics UI on port 3000). A one-shot `kafka-init` container
+applies topic creation (`create-topics.sh`) and exits 0. Flyway runs on write-side startup.
 
 ```powershell
 # Backend only
@@ -206,6 +210,12 @@ docker compose -f infra/docker-compose.yml up -d --build
 
 # Full demo with Blazor UI
 docker compose -f infra/docker-compose.yml --profile full up -d --build
+
+# Backend + observability (Grafana, Loki, Prometheus)
+docker compose -f infra/docker-compose.yml --profile observability up -d --build
+
+# Everything
+docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
 ```
 
 | Service | Port | Role |
@@ -216,6 +226,13 @@ docker compose -f infra/docker-compose.yml --profile full up -d --build
 | stream-processor | — | Flink job (shaded jar, `java -jar`) |
 | api-gateway | 8085 | Query APIs + WebSocket push |
 | blazor-dashboard | 8086 | Blazor + Radzen UI (compose profile `full`) |
+| grafana | 3000 | Logs + metrics UI (compose profile `observability`) |
+| prometheus | 9090 | Metrics scraper (compose profile `observability`) |
+| loki | 3100 | Log store (compose profile `observability`) |
+
+Grafana default credentials for local demo: `admin` / `aether`. Promtail collects stdout from
+`aether-*` containers; Java services emit JSON logs with `correlationId` for traceability in
+Loki/Explore.
 
 **Docker build context:** `.dockerignore` excludes `ui/blazor-dashboard/bin` and `obj` but must
 include `ui/blazor-dashboard/` sources for the dashboard image. Flink shaded modules
