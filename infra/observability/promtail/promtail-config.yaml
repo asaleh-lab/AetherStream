@@ -1,0 +1,39 @@
+# Collects stdout from AetherStream compose containers via the Docker socket.
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-aether
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: [__meta_docker_container_name]
+        regex: /aether-.*
+        action: keep
+      - source_labels: [__meta_docker_container_name]
+        regex: /(.*)
+        target_label: container
+      - source_labels: [__meta_docker_container_label_aetherstream_role]
+        target_label: service
+    pipeline_stages:
+      # Unwrap Docker's {"log":"...","stream":"stdout"} envelope.
+      - docker: {}
+      # Java services emit one JSON object per line (Logback + logstash encoder).
+      - match:
+          selector: '{service=~"write-side|outbox-relay|api-gateway"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  correlationId: correlationId
+            - labels:
+                level:
+                correlationId:
