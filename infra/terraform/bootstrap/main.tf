@@ -93,6 +93,14 @@ resource "azuread_application_federated_identity_credential" "github_prs" {
   subject        = "repo:${var.github_org}/${var.github_repo}:pull_request"
 }
 
+resource "azuread_application_federated_identity_credential" "github_demo_env" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "github-demo-environment"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_org}/${var.github_repo}:environment:demo"
+}
+
 resource "azurerm_role_assignment" "sp_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
