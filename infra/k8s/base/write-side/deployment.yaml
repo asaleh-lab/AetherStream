@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: write-side
+  namespace: aether
+  labels:
+    app: write-side
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: write-side
+  template:
+    metadata:
+      labels:
+        app: write-side
+    spec:
+      serviceAccountName: aether-workload
+      containers:
+        - name: write-side
+          image: aetherstream/write-side:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: aether-env
+            - secretRef:
+                name: aether-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

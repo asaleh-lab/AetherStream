@@ -1,0 +1,11 @@
+FROM grafana/grafana:11.0.0
+
+USER root
+COPY infra/observability/grafana/provisioning /etc/grafana/provisioning
+COPY infra/docker/grafana-datasources-azure.yaml /etc/grafana/provisioning/datasources/azure.yaml
+COPY infra/docker/grafana-entrypoint.sh /grafana-entrypoint.sh
+RUN chmod +x /grafana-entrypoint.sh
+USER grafana
+
+ENV GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+ENTRYPOINT ["/grafana-entrypoint.sh"]

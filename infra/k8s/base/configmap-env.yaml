@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aether-env
+  namespace: aether
+data:
+  AETHER_DB_USER: aetheradmin
+  AETHER_KAFKA_BOOTSTRAP: kafka:9092
+  AETHER_WRITE_SIDE_URL: http://write-side:8080
+  AETHER_KAFKA_OFFSET_RESET: latest
+  AETHER_VIBRATION_THRESHOLD: "1.0"
+  AETHER_EFFICIENCY_TARGET: "0.85"
+  SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: latest

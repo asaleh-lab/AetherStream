@@ -1,0 +1,6 @@
+location             = "westeurope"
+prefix               = "aether"
+resource_group_name  = "rg-aether-tfstate"
+storage_account_name = "aetherstreamtfstate" # must be globally unique — change if taken
+github_org           = "asaleh-lab"
+github_repo          = "AetherStream"

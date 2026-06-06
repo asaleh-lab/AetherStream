@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datasource
+  namespace: aether
+  labels:
+    app: datasource
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: datasource
+  template:
+    metadata:
+      labels:
+        app: datasource
+    spec:
+      serviceAccountName: aether-workload
+      containers:
+        - name: datasource
+          image: aetherstream/datasource:latest
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: aether-env
+          env:
+            - name: SERVER_PORT
+              value: "8081"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

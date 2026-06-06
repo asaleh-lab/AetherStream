@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blazor-dashboard
+  namespace: aether
+  labels:
+    app: blazor-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blazor-dashboard
+  template:
+    metadata:
+      labels:
+        app: blazor-dashboard
+    spec:
+      containers:
+        - name: blazor-dashboard
+          image: aetherstream/blazor-dashboard:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+            - name: Gateway__BaseUrl
+              value: http://api-gateway:8085
+            - name: Gateway__WebSocketUrl
+              value: ws://api-gateway:8085/ws/realtime
+            - name: Dashboard__DisplayTimeZoneId
+              value: Europe/Berlin
+          volumeMounts:
+            - name: dataprotection-keys
+              mountPath: /app/dataprotection-keys
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: dataprotection-keys
+          emptyDir: {}

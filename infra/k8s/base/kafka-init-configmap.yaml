@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-init-scripts
+  namespace: aether
+data:
+  create-topics.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BOOTSTRAP="${BOOTSTRAP:-kafka:9092}"
+    PARTITIONS="${PARTITIONS:-1}"
+    REPLICAS="${REPLICAS:-1}"
+    TOPICS=(
+      turbine-events
+      grid-events
+      energy-state-events
+      alerts
+      recommendations
+      dead-letter-events
+      outbox-events
+    )
+    echo "Creating topics on ${BOOTSTRAP}"
+    for topic in "${TOPICS[@]}"; do
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server "${BOOTSTRAP}" \
+        --create --if-not-exists \
+        --topic "${topic}" \
+        --partitions "${PARTITIONS}" \
+        --replication-factor "${REPLICAS}"
+      echo "  ok: ${topic}"
+    done

@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: aether
+  labels:
+    app: kafka-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: kafka-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: apache/kafka:3.8.0
+          command: ["/bin/bash", "/scripts/create-topics.sh"]
+          env:
+            - name: BOOTSTRAP
+              value: kafka:9092
+            - name: PARTITIONS
+              value: "1"
+            - name: REPLICAS
+              value: "1"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: kafka-init-scripts
+            defaultMode: 0755

@@ -18,7 +18,7 @@ class OptimizationRulesTest {
 
         assertThat(suggestion).isPresent();
         assertThat(suggestion.get()).contains("north-sea");
-        assertThat(suggestion.get()).contains("50%");
+        assertThat(suggestion.get()).contains("50.0%");
     }
 
     @Test

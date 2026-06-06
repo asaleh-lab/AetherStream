@@ -1,0 +1,130 @@
+name: App CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "core/**"
+      - "ui/**"
+      - "infra/docker/**"
+      - "infra/k8s/**"
+      - ".github/workflows/app-cd.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_USE_OIDC: true
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  AKS_NAME: ${{ vars.AKS_NAME }}
+  AKS_RG: ${{ vars.AKS_RG }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    environment: demo
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: write-side
+            dockerfile: infra/docker/Dockerfile.write-side
+          - image: datasource
+            dockerfile: infra/docker/Dockerfile.datasource
+          - image: outbox-relay
+            dockerfile: infra/docker/Dockerfile.outbox-relay
+          - image: api-gateway
+            dockerfile: infra/docker/Dockerfile.api-gateway
+          - image: stream-processor
+            dockerfile: infra/docker/Dockerfile.stream-processor
+          - image: decision-engine
+            dockerfile: infra/docker/Dockerfile.decision-engine
+          - image: blazor-dashboard
+            dockerfile: infra/docker/Dockerfile.blazor-dashboard
+          - image: grafana
+            dockerfile: infra/docker/Dockerfile.grafana
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push
+        run: |
+          REGISTRY="${{ env.ACR_NAME }}.azurecr.io"
+          docker build -f ${{ matrix.dockerfile }} -t "${REGISTRY}/${{ matrix.image }}:${IMAGE_TAG}" -t "${REGISTRY}/${{ matrix.image }}:latest" .
+          docker push "${REGISTRY}/${{ matrix.image }}:${IMAGE_TAG}"
+          docker push "${REGISTRY}/${{ matrix.image }}:latest"
+
+  deploy-aks:
+    name: Deploy AKS workloads
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ env.AKS_RG }}
+          cluster-name: ${{ env.AKS_NAME }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Patch secrets and deploy
+        env:
+          PG_HOST: ${{ secrets.AZURE_PG_HOST }}
+          PG_PASSWORD: ${{ secrets.AZURE_PG_PASSWORD }}
+          KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME }}
+        run: |
+          REGISTRY="${{ env.ACR_NAME }}.azurecr.io"
+          KV="${KEY_VAULT_NAME:-aether4adcdemokv}"
+          kubectl create namespace aether --dry-run=client -o yaml | kubectl apply -f -
+          cd infra/k8s/overlays/demo
+          kustomize edit set image \
+            aetherdemoacr.azurecr.io/write-side=${REGISTRY}/write-side:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/datasource=${REGISTRY}/datasource:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/outbox-relay=${REGISTRY}/outbox-relay:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/api-gateway=${REGISTRY}/api-gateway:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/stream-processor=${REGISTRY}/stream-processor:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/decision-engine=${REGISTRY}/decision-engine:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/blazor-dashboard=${REGISTRY}/blazor-dashboard:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/grafana=${REGISTRY}/grafana:${IMAGE_TAG}
+          kustomize build . | kubectl apply -f -
+          kubectl -n aether create secret generic aether-secrets \
+            --from-literal=AETHER_DB_URL="jdbc:postgresql://${PG_HOST}:5432/aetherstream" \
+            --from-literal=AETHER_DB_PASSWORD="${PG_PASSWORD}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          GRAFANA_PW=$(az keyvault secret show --vault-name "$KV" --name grafana-admin-password --query value -o tsv)
+          kubectl -n aether create secret generic grafana-secrets \
+            --from-literal=GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_PW" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway deployment/blazor-dashboard deployment/grafana

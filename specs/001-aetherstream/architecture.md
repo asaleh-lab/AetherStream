@@ -230,7 +230,7 @@ docker compose -f infra/docker-compose.yml --profile full --profile observabilit
 | prometheus | 9090 | Metrics scraper (compose profile `observability`) |
 | loki | 3100 | Log store (compose profile `observability`) |
 
-Grafana default credentials for local demo: `admin` / `aether`. Promtail collects stdout from
+Grafana local compose login: `admin` / `admin`. Live Azure demo URLs and logins are in the **motivation letter**. Promtail collects stdout from
 `aether-*` containers; Java services emit JSON logs with `correlationId` for traceability in
 Loki/Explore.
 

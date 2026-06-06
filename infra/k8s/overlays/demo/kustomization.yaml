@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: aetherstream/write-side
+    newName: aetherdemoacr.azurecr.io/write-side
+    newTag: latest
+  - name: aetherstream/datasource
+    newName: aetherdemoacr.azurecr.io/datasource
+    newTag: latest
+  - name: aetherstream/outbox-relay
+    newName: aetherdemoacr.azurecr.io/outbox-relay
+    newTag: latest
+  - name: aetherstream/api-gateway
+    newName: aetherdemoacr.azurecr.io/api-gateway
+    newTag: latest
+  - name: aetherstream/stream-processor
+    newName: aetherdemoacr.azurecr.io/stream-processor
+    newTag: latest
+  - name: aetherstream/decision-engine
+    newName: aetherdemoacr.azurecr.io/decision-engine
+    newTag: latest
+  - name: aetherstream/blazor-dashboard
+    newName: aetherdemoacr.azurecr.io/blazor-dashboard
+    newTag: latest
+  - name: aetherstream/grafana
+    newName: aetherdemoacr.azurecr.io/grafana
+    newTag: latest
+
+patches:
+  - path: api-gateway-service-patch.yaml
+  - path: prometheus-service-patch.yaml
+  - path: resource-limits-patch.yaml
+  - path: rollout-strategy-patch.yaml
+  - path: kafka-probe-patch.yaml

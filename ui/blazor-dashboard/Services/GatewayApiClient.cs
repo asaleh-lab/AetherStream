@@ -5,7 +5,11 @@ namespace AetherStream.Dashboard.Services;
 
 public sealed class GatewayApiClient(IHttpClientFactory httpClientFactory, ILogger<GatewayApiClient> logger)
 {
-    private static readonly string[] KnownTurbineIds = ["T-001", "T-002", "T-003"];
+    private static readonly string[] KnownTurbineIds =
+    [
+        "T-001", "T-002", "T-003", "T-004", "T-005",
+        "T-006", "T-007", "T-008", "T-009", "T-010"
+    ];
 
     public async Task BootstrapAsync(DashboardState state, CancellationToken cancellationToken = default)
     {

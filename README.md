@@ -38,7 +38,7 @@ datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Fli
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 10 + Radzen)
-infra/          docker-compose, Dockerfiles, observability configs (Grafana/Loki/Prometheus)
+infra/          docker-compose, Dockerfiles, observability configs; Terraform + K8s for Azure
 scripts/        smoke-ingest.ps1 and other dev helpers
 specs/          spec-kit artifacts
 ```
@@ -118,7 +118,7 @@ Open-source stack for log search and service metrics — no license cost when se
 | **Promtail** | Ships Docker container logs to Loki |
 | **Prometheus** | Scrapes Spring Boot `/actuator/prometheus` every 15s |
 
-**Grafana:** `http://localhost:3000` — login `admin` / `aether` (local demo only).
+**Grafana (local):** `http://localhost:3000` — login `admin` / `admin` (local Docker Compose only). Live Azure demo URLs and credentials are in the **motivation letter**.
 
 Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 
@@ -182,6 +182,82 @@ Check container health:
 ```powershell
 docker compose -f infra/docker-compose.yml --profile full ps -a
 ```
+
+## Azure deployment (Terraform)
+
+The same demo stack can run on Azure with **lowest viable SKUs** (~**$85/mo** with UI on AKS;
+see [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)). Full runbook:
+[infra/terraform/README.md](infra/terraform/README.md).
+
+### Architecture
+
+```mermaid
+flowchart TB
+  User([User / reviewer])
+
+  subgraph Azure["Azure subscription — AetherStream"]
+    subgraph Public["Public edge (cost-optimized — no AGW/WAF)"]
+      BlazorLB["blazor-dashboard LB"]
+      GrafanaLB["grafana LB"]
+    end
+
+    subgraph VNet["VNet aether-demo-vnet"]
+      subgraph AKS["AKS — 1× node"]
+        Blazor["Blazor"]
+        Graf["Grafana"]
+        ILB["Internal LoadBalancers"]
+        GW["api-gateway"]
+        Back["write-side · relay · Kafka · Flink"]
+        Blazor --> GW
+        Graf --> ILB
+        ILB --> GW
+        GW --- Back
+      end
+    end
+
+    subgraph Platform["Shared platform"]
+      PG[("PostgreSQL<br/>B_Standard_B1ms")]
+      ACR["ACR Basic"]
+      KV["Key Vault"]
+      LAW["Log Analytics"]
+    end
+
+    GH["GitHub Actions<br/>OIDC → deploy"]
+  end
+
+  User -->|HTTP| BlazorLB
+  User -->|HTTP| GrafanaLB
+  BlazorLB --> Blazor
+  GrafanaLB --> Graf
+  AKS --> PG
+  AKS --> ACR
+  GH --> ACR
+  GH --> AKS
+```
+
+After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Application Gateway and WAF are omitted for cost.
+
+### Deliberately omitted for cost
+
+This demo Terraform **does not** deploy production edge and isolation controls from early
+hub-spoke designs. They were removed to stay within starter credits (~**$85/mo** with UI on AKS)
+and to keep teardown simple:
+
+| Omitted | Why |
+|---------|-----|
+| **Application Gateway** | ~$200/mo fixed cost — largest line item; AKS LoadBalancer HTTP is the public front door |
+| **WAF (Web Application Firewall)** | Requires Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
+| **Private endpoints** (PostgreSQL, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity / RBAC instead |
+| **Hub-spoke VNet peering** | Single VNet is sufficient at demo scale |
+| **App Service** | B1 Web quota unavailable in North Europe on this subscription |
+| **Premium ACR** | Only required for private-link designs |
+
+**Privacy trade-off:** Blazor and Grafana are on **public AKS LoadBalancer IPs**. Backend
+streaming (api-gateway, Kafka, Flink, write-side) stays on **internal AKS LoadBalancers** — not
+Internet-routable. For production, reintroduce Application Gateway + WAF, private endpoints, and
+network isolation.
+
+**Budget alert:** subscription budget `aetherstream-100` emails at $80 and $100 actual spend.
 
 ## Status
 

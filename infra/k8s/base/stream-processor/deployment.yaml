@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-processor
+  namespace: aether
+  labels:
+    app: stream-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stream-processor
+  template:
+    metadata:
+      labels:
+        app: stream-processor
+    spec:
+      serviceAccountName: aether-workload
+      containers:
+        - name: stream-processor
+          image: aetherstream/stream-processor:latest
+          envFrom:
+            - configMapRef:
+                name: aether-env
+          resources:
+            requests:
+              cpu: 500m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 1536Mi

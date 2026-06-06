@@ -15,7 +15,7 @@ public final class OptimizationRules {
     public static Optional<String> evaluate(EnergyState state, double efficiencyTarget) {
         if (state.efficiencyScore() < efficiencyTarget) {
             return Optional.of(String.format(
-                    "Efficiency is %.0f%% (target %.0f%%) — increase turbine output or reduce load in %s",
+                    "Efficiency is %.1f%% (target %.0f%%) — increase turbine output or reduce load in %s",
                     state.efficiencyScore() * 100,
                     efficiencyTarget * 100,
                     state.region()));

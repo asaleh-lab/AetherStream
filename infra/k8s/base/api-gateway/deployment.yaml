@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: aether
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      serviceAccountName: aether-workload
+      containers:
+        - name: api-gateway
+          image: aetherstream/api-gateway:latest
+          ports:
+            - containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: aether-env
+            - secretRef:
+                name: aether-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8085"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
