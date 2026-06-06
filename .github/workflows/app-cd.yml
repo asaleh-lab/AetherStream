@@ -106,10 +106,6 @@ jobs:
         run: |
           REGISTRY="${{ env.ACR_NAME }}.azurecr.io"
           kubectl create namespace aether --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n aether create secret generic aether-secrets \
-            --from-literal=AETHER_DB_URL="jdbc:postgresql://${PG_HOST}:5432/aetherstream" \
-            --from-literal=AETHER_DB_PASSWORD="${PG_PASSWORD}" \
-            --dry-run=client -o yaml | kubectl apply -f -
           cd infra/k8s/overlays/demo
           kustomize edit set image \
             aetherdemoacr.azurecr.io/write-side=${REGISTRY}/write-side:${IMAGE_TAG} \
@@ -119,6 +115,11 @@ jobs:
             aetherdemoacr.azurecr.io/stream-processor=${REGISTRY}/stream-processor:${IMAGE_TAG} \
             aetherdemoacr.azurecr.io/decision-engine=${REGISTRY}/decision-engine:${IMAGE_TAG}
           kustomize build . | kubectl apply -f -
+          kubectl -n aether create secret generic aether-secrets \
+            --from-literal=AETHER_DB_URL="jdbc:postgresql://${PG_HOST}:5432/aetherstream" \
+            --from-literal=AETHER_DB_PASSWORD="${PG_PASSWORD}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway
 
   deploy-appservice:
     name: Deploy App Service containers

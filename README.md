@@ -185,7 +185,7 @@ docker compose -f infra/docker-compose.yml --profile full ps -a
 
 ## Azure deployment (Terraform)
 
-The same demo stack can run on Azure with **lowest viable SKUs** (~**$67/mo** Infracost baseline;
+The same demo stack can run on Azure with **lowest viable SKUs** (~**$80/mo** with App Service B1;
 see [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)). Full runbook:
 [infra/terraform/README.md](infra/terraform/README.md).
 
@@ -196,13 +196,16 @@ flowchart TB
   User([User / reviewer])
 
   subgraph Azure["Azure subscription — AetherStream"]
-    subgraph Public["Public (demo cost model)"]
-      Blazor["App Service — Blazor<br/>B1 · *.azurewebsites.net"]
-      Grafana["App Service — Grafana<br/>B1 · *.azurewebsites.net"]
+    subgraph Public["Public edge (cost-optimized — no AGW/WAF)"]
+      ASP["App Service Plan B1"]
+      Blazor["aether-demo-blazor"]
+      Grafana["aether-demo-grafana"]
+      ASP --> Blazor
+      ASP --> Grafana
     end
 
     subgraph VNet["VNet aether-demo-vnet"]
-      subgraph AKS["AKS — 1× B2als_v2 node"]
+      subgraph AKS["AKS — 1× node"]
         ILB["Internal LoadBalancers"]
         GW["api-gateway"]
         Back["write-side · relay · Kafka · Flink"]
@@ -216,7 +219,7 @@ flowchart TB
       PG[("PostgreSQL<br/>B_Standard_B1ms")]
       ACR["ACR Basic"]
       KV["Key Vault"]
-      LAW["Log Analytics<br/>1-day retention"]
+      LAW["Log Analytics"]
     end
 
     GH["GitHub Actions<br/>OIDC → deploy"]
@@ -224,8 +227,8 @@ flowchart TB
 
   User -->|HTTPS| Blazor
   User -->|HTTPS| Grafana
-  Blazor -->|VNet integration + private DNS| GW
-  Grafana -->|VNet integration + private DNS| ILB
+  Blazor -->|VNet + private DNS| GW
+  Grafana -->|VNet + private DNS| ILB
   AKS --> PG
   AKS --> ACR
   Blazor --> ACR
@@ -236,27 +239,27 @@ flowchart TB
   GH --> Grafana
 ```
 
-After `terraform apply`, open `terraform output dashboard_url` and `ops_url` — no hosts file
-or Application Gateway required.
+After `terraform apply`, open `terraform output dashboard_url` and `ops_url` (App Service HTTPS).
+Application Gateway and WAF are omitted for cost.
 
-### Deliberately omitted (cost & privacy)
+### Deliberately omitted for cost
 
-This demo Terraform **does not** deploy several production-hardening controls that appeared in
-early hub-spoke designs. They were removed to stay within starter credits and to keep the
-portfolio environment simple to tear down:
+This demo Terraform **does not** deploy production edge and isolation controls from early
+hub-spoke designs. They were removed to stay within starter credits (~**$80/mo** with B1 UI)
+and to keep teardown simple:
 
 | Omitted | Why |
 |---------|-----|
-| **Application Gateway** | ~$200/mo fixed cost; App Service public URLs are the front door instead |
-| **WAF (Web Application Firewall)** | Requires AGW WAF_v2 tier; not justified for a personal demo |
-| **Private endpoints** (App Service, PG, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity used instead |
-| **Hub-spoke VNet peering** | Single VNet is enough for this scale |
-| **Premium ACR / P1v3 App Service** | Minimum tiers that support the workload at lowest price |
+| **Application Gateway** | ~$200/mo fixed cost — largest line item; App Service HTTPS is the public front door |
+| **WAF (Web Application Firewall)** | Requires Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
+| **Private endpoints** (UI, PostgreSQL, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity / RBAC instead |
+| **Hub-spoke VNet peering** | Single VNet is sufficient at demo scale |
+| **Premium ACR / App Service P1v3** | Only required for private-link designs |
 
-**Privacy trade-off:** Blazor and Grafana are reachable on public `*.azurewebsites.net` URLs.
-Backend streaming services (api-gateway, Kafka, Flink, write-side) stay on **internal AKS
-LoadBalancers** — not exposed to the Internet. For a production deployment you would reintroduce
-AGW + WAF, private endpoints, and network isolation; see git history / earlier design notes.
+**Privacy trade-off:** Blazor and Grafana are on **public App Service URLs**. Backend
+streaming (api-gateway, Kafka, Flink, write-side) stays on **internal AKS LoadBalancers** — not
+Internet-routable. For production, reintroduce Application Gateway + WAF, private endpoints, and
+network isolation.
 
 **Budget alert:** subscription budget `aetherstream-100` emails at $80 and $100 actual spend.
 

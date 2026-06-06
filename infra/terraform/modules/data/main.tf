@@ -20,6 +20,10 @@ resource "azurerm_postgresql_flexible_server" "main" {
   geo_redundant_backup_enabled  = false
   public_network_access_enabled = true
   tags                          = var.tags
+
+  lifecycle {
+    ignore_changes = [zone, high_availability]
+  }
 }
 
 resource "azurerm_postgresql_flexible_server_database" "main" {
@@ -47,21 +51,18 @@ resource "azurerm_container_registry" "main" {
 }
 
 resource "azurerm_role_assignment" "acr_pull_blazor" {
-  count                = var.blazor_identity_principal_id != "" ? 1 : 0
   scope                = azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = var.blazor_identity_principal_id
 }
 
 resource "azurerm_role_assignment" "acr_pull_grafana" {
-  count                = var.grafana_identity_principal_id != "" ? 1 : 0
   scope                = azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = var.grafana_identity_principal_id
 }
 
 resource "azurerm_role_assignment" "acr_push_github" {
-  count                = var.github_actions_principal_id != "" ? 1 : 0
   scope                = azurerm_container_registry.main.id
   role_definition_name = "AcrPush"
   principal_id         = var.github_actions_principal_id

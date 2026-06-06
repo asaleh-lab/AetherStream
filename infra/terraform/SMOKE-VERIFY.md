@@ -1,19 +1,19 @@
 # Azure Demo Smoke Verification
 
-Run after `terraform apply` and the `app-cd` workflow (or manual image deploy + `kubectl apply`).
+Run after `terraform apply` and workloads are deployed (AKS + App Service).
 
 ## 1. Network exposure
 
 ```powershell
 cd infra/terraform/environments/demo
-$blazor = terraform output -raw blazor_hostname
-$grafana = terraform output -raw grafana_hostname
+$dashboard = terraform output -raw dashboard_url
+$ops = terraform output -raw ops_url
 
-curl -I "https://$blazor/health"
-curl -I "https://$grafana/api/health"
+curl -I "$dashboard/health"
+curl -I "$ops/api/health"
 ```
 
-Expected: Blazor and Grafana App Service URLs are publicly reachable over HTTPS.
+Expected: Blazor and Grafana are publicly reachable on **App Service HTTPS** URLs.
 
 ## 2. Blazor dashboard (live data)
 
@@ -51,7 +51,7 @@ Expected: `No changes.`
 ## 6. App CD (image update without Terraform)
 
 1. Push a trivial change to a service Dockerfile or source file.
-2. Confirm `app-cd` workflow builds, pushes `:latest` and `:sha`, and restarts workloads.
+2. Confirm `app-cd` workflow builds, pushes `:latest` and `:sha`, and restarts AKS + App Service containers.
 3. Re-run dashboard smoke checks — live data still flows.
 
 ## Troubleshooting
@@ -59,6 +59,7 @@ Expected: `No changes.`
 | Symptom | Check |
 |---|---|
 | Blazor shows disconnected | App Service VNet integration; DNS `api-gateway.aether-demo.internal:8085`; ILB IP `10.1.0.10` |
-| Blazor 502 / unhealthy | App Service logs; container image in ACR; `/health` probe |
+| Blazor unhealthy | App Service logs; ACR images; `/health` on Blazor URL |
 | No Kafka events | `kubectl -n aether logs job/kafka-init`; `kubectl -n aether get pods` |
-| Flyway errors | PostgreSQL secret in `aether-secrets`; `terraform output postgres_fqdn` |
+| Flyway errors | `aether-secrets` from Key Vault (not kustomize); `kubectl get secret aether-secrets -o yaml` |
+| Pods Pending (CPU) | Demo overlay resource limits; or set `aks_node_count = 2` in tfvars |

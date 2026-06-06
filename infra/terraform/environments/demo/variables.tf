@@ -1,6 +1,6 @@
 variable "location" {
   type    = string
-  default = "westeurope"
+  default = "northeurope"
 }
 
 variable "prefix" {
@@ -35,7 +35,7 @@ variable "aks_vm_size" {
 
 variable "log_analytics_retention_days" {
   type    = number
-  default = 1
+  default = 30
 }
 
 variable "app_service_plan_sku" {
@@ -74,13 +74,25 @@ variable "blazor_image" {
 
 variable "grafana_image" {
   type    = string
-  default = "grafana:11.0.0"
+  default = "grafana:latest"
 }
 
 variable "github_actions_principal_id" {
   description = "Object ID of GitHub Actions service principal (from bootstrap)."
   type        = string
   default     = ""
+}
+
+variable "key_vault_name" {
+  description = "Globally unique Key Vault name override."
+  type        = string
+  default     = "aether4adcdemokv"
+}
+
+variable "enable_app_service" {
+  description = "Deploy Blazor + Grafana on one shared App Service Plan (B1 minimum for containers)."
+  type        = bool
+  default     = true
 }
 
 variable "tags" {

@@ -24,6 +24,7 @@ module "security" {
   tags                   = var.tags
   tenant_id              = data.azurerm_client_config.current.tenant_id
   terraform_principal_id = data.azurerm_client_config.current.object_id
+  key_vault_name         = var.key_vault_name
 }
 
 module "data" {
@@ -80,6 +81,7 @@ resource "azurerm_private_dns_a_record" "prometheus" {
 }
 
 module "compute_appservice" {
+  count  = var.enable_app_service ? 1 : 0
   source = "../../modules/compute-appservice"
 
   prefix                     = var.prefix
@@ -110,9 +112,9 @@ module "observability" {
   resource_group_name        = azurerm_resource_group.main.name
   tags                       = var.tags
   log_analytics_workspace_id = module.data.log_analytics_workspace_id
-  app_service_ids = [
-    module.compute_appservice.blazor_id,
-    module.compute_appservice.grafana_id,
-  ]
+  app_service_ids = var.enable_app_service ? {
+    blazor  = module.compute_appservice[0].blazor_id
+    grafana = module.compute_appservice[0].grafana_id
+  } : {}
   aks_id = module.compute_aks.aks_id
 }

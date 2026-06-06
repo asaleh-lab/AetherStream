@@ -28,10 +28,8 @@ resource "azurerm_linux_web_app" "blazor" {
     container_registry_managed_identity_client_id = var.blazor_identity_client_id
 
     application_stack {
-      docker_image_name        = var.blazor_image
-      docker_registry_url      = "https://${var.acr_login_server}"
-      docker_registry_username = ""
-      docker_registry_password = ""
+      docker_image_name   = var.blazor_image
+      docker_registry_url = "https://${var.acr_login_server}"
     }
 
     health_check_path                 = "/health"
@@ -71,10 +69,8 @@ resource "azurerm_linux_web_app" "grafana" {
     container_registry_managed_identity_client_id = var.grafana_identity_client_id
 
     application_stack {
-      docker_image_name        = var.grafana_image
-      docker_registry_url      = "https://${var.acr_login_server}"
-      docker_registry_username = ""
-      docker_registry_password = ""
+      docker_image_name   = var.grafana_image
+      docker_registry_url = "https://${var.acr_login_server}"
     }
 
     health_check_path                 = "/api/health"
@@ -85,7 +81,7 @@ resource "azurerm_linux_web_app" "grafana" {
     "GF_SECURITY_ADMIN_USER"     = "admin"
     "GF_SECURITY_ADMIN_PASSWORD" = var.grafana_admin_password
     "GF_USERS_ALLOW_SIGN_UP"     = "false"
-    "GF_SERVER_ROOT_URL"         = "https://${azurerm_linux_web_app.grafana.default_hostname}"
+    "GF_SERVER_ROOT_URL"         = "https://${var.prefix}-grafana.azurewebsites.net"
     "PROMETHEUS_URL"             = "http://${var.prometheus_internal_host}:9090"
     "WEBSITES_PORT"              = "3000"
     "WEBSITE_DNS_SERVER"         = "168.63.129.16"

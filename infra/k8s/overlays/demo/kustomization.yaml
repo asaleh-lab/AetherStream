@@ -25,6 +25,8 @@ images:
     newTag: latest
 
 patches:
-  - path: secret-patch.yaml
   - path: api-gateway-service-patch.yaml
   - path: prometheus-service-patch.yaml
+  - path: resource-limits-patch.yaml
+  - path: rollout-strategy-patch.yaml
+  - path: kafka-probe-patch.yaml

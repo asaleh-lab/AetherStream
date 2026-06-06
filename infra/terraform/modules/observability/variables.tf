@@ -19,11 +19,9 @@ variable "log_analytics_workspace_id" {
 }
 
 variable "app_service_ids" {
-  type    = list(string)
-  default = []
+  type = map(string)
 }
 
 variable "aks_id" {
-  type    = string
-  default = ""
+  type = string
 }

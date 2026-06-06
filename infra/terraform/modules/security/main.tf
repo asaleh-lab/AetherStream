@@ -1,7 +1,7 @@
 data "azurerm_client_config" "current" {}
 
 resource "azurerm_key_vault" "main" {
-  name                          = replace("${var.prefix}-kv", "-", "")
+  name                          = coalesce(var.key_vault_name, replace("${var.prefix}-kv", "-", ""))
   location                      = var.location
   resource_group_name           = var.resource_group_name
   tenant_id                     = var.tenant_id

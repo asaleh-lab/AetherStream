@@ -35,7 +35,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     load_balancer_sku   = "standard"
     outbound_type       = "loadBalancer"
     service_cidr        = "10.2.0.0/16"
-    dns_service_ip      = "10.2.0.1"
+    dns_service_ip      = "10.2.0.10"
     pod_cidr            = "10.244.0.0/16"
   }
 
