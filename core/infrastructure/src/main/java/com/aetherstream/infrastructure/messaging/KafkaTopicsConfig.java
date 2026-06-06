@@ -38,6 +38,11 @@ public class KafkaTopicsConfig {
     }
 
     @Bean
+    NewTopic recommendationsTopic() {
+        return TopicBuilder.name(Topics.RECOMMENDATIONS).partitions(PARTITIONS).replicas(REPLICAS).build();
+    }
+
+    @Bean
     NewTopic deadLetterEventsTopic() {
         return TopicBuilder.name(Topics.DEAD_LETTER_EVENTS).partitions(PARTITIONS).replicas(REPLICAS).build();
     }

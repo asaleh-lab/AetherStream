@@ -190,6 +190,27 @@ services:
       aetherstream.role: stream-processor
     restart: unless-stopped
 
+  decision-engine:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.decision-engine
+    image: aetherstream/decision-engine:local
+    container_name: aether-decision-engine
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      stream-processor:
+        condition: service_started
+    environment:
+      AETHER_KAFKA_BOOTSTRAP: kafka:9092
+      AETHER_KAFKA_OFFSET_RESET: latest
+      AETHER_EFFICIENCY_TARGET: "0.85"
+    labels:
+      aetherstream.role: decision-engine
+    restart: unless-stopped
+
   # --- API gateway (read-model projections, query APIs, WebSocket) ---
 
   api-gateway:
@@ -206,6 +227,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
       stream-processor:
+        condition: service_started
+      decision-engine:
         condition: service_started
     ports:
       - "8085:8085"

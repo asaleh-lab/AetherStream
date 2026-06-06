@@ -7,6 +7,7 @@ public final class Topics {
     public static final String GRID_EVENTS = "grid-events";
     public static final String ENERGY_STATE_EVENTS = "energy-state-events";
     public static final String ALERTS = "alerts";
+    public static final String RECOMMENDATIONS = "recommendations";
     public static final String DEAD_LETTER_EVENTS = "dead-letter-events";
     public static final String OUTBOX_EVENTS = "outbox-events";
 

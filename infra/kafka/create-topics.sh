@@ -14,6 +14,7 @@ TOPICS=(
   grid-events
   energy-state-events
   alerts
+  recommendations
   dead-letter-events
   outbox-events
 )

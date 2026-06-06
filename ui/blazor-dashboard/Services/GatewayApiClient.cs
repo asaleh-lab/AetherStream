@@ -15,14 +15,17 @@ public sealed class GatewayApiClient(IHttpClientFactory httpClientFactory, ILogg
 
             var energyTask = client.GetFromJsonAsync<List<EnergyStateDto>>("/api/energy/latest", cancellationToken);
             var alertsTask = client.GetFromJsonAsync<List<AlertDto>>("/api/alerts?limit=50", cancellationToken);
+            var recommendationsTask =
+                client.GetFromJsonAsync<List<RecommendationDto>>("/api/recommendations?limit=50", cancellationToken);
             var turbineTasks = KnownTurbineIds
                 .Select(id => FetchTurbineAsync(client, id, cancellationToken))
                 .ToArray();
 
-            await Task.WhenAll(energyTask, alertsTask, Task.WhenAll(turbineTasks));
+            await Task.WhenAll(energyTask, alertsTask, recommendationsTask, Task.WhenAll(turbineTasks));
 
             state.SetEnergyStates(energyTask.Result ?? []);
             state.SetAlerts(alertsTask.Result ?? []);
+            state.SetRecommendations(recommendationsTask.Result ?? []);
 
             var turbines = (await Task.WhenAll(turbineTasks))
                 .Where(t => t is not null)

@@ -2,9 +2,11 @@ package com.aetherstream.gateway.projection;
 
 import com.aetherstream.application.port.out.AlertReadModel;
 import com.aetherstream.application.port.out.EnergyStateReadModel;
+import com.aetherstream.application.port.out.RecommendationReadModel;
 import com.aetherstream.domain.event.EventTypes;
 import com.aetherstream.domain.model.Alert;
 import com.aetherstream.domain.model.EnergyState;
+import com.aetherstream.domain.model.Recommendation;
 import com.aetherstream.domain.model.Turbine;
 import com.aetherstream.gateway.config.KafkaConsumerConfiguration;
 import com.aetherstream.gateway.realtime.RealtimeWebSocketHandler;
@@ -26,6 +28,7 @@ public class ReadModelProjectionConsumer {
     private final EventEnvelopeParser envelopeParser;
     private final EnergyStateReadModel energyStateReadModel;
     private final AlertReadModel alertReadModel;
+    private final RecommendationReadModel recommendationReadModel;
     private final RealtimeWebSocketHandler realtimeWebSocketHandler;
     private final CorrelationIdContext correlationIdContext;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -34,12 +37,14 @@ public class ReadModelProjectionConsumer {
             EventEnvelopeParser envelopeParser,
             EnergyStateReadModel energyStateReadModel,
             AlertReadModel alertReadModel,
+            RecommendationReadModel recommendationReadModel,
             RealtimeWebSocketHandler realtimeWebSocketHandler,
             CorrelationIdContext correlationIdContext,
             com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.envelopeParser = envelopeParser;
         this.energyStateReadModel = energyStateReadModel;
         this.alertReadModel = alertReadModel;
+        this.recommendationReadModel = recommendationReadModel;
         this.realtimeWebSocketHandler = realtimeWebSocketHandler;
         this.correlationIdContext = correlationIdContext;
         this.objectMapper = objectMapper;
@@ -92,6 +97,23 @@ public class ReadModelProjectionConsumer {
             alertReadModel.upsert(envelope.eventId(), alert);
             realtimeWebSocketHandler.broadcast("alert", alert);
             log.debug("Projected alert {} from {}", alert.type(), alert.source());
+        });
+    }
+
+    @KafkaListener(
+            topics = KafkaConsumerConfiguration.RECOMMENDATIONS_TOPIC,
+            groupId = "${spring.kafka.consumer.group-id}")
+    public void onRecommendation(ConsumerRecord<String, String> record) {
+        withCorrelation(record, () -> {
+            var envelope = envelopeParser.parse(record.value());
+            if (!EventTypes.RECOMMENDATION_ISSUED.equals(envelope.eventType())) {
+                log.debug("Skipping unexpected event type on recommendations topic: {}", envelope.eventType());
+                return;
+            }
+            var recommendation = (Recommendation) envelope.payload();
+            recommendationReadModel.upsert(envelope.eventId(), recommendation);
+            realtimeWebSocketHandler.broadcast("recommendation", recommendation);
+            log.debug("Projected recommendation for region {}", recommendation.region());
         });
     }
 

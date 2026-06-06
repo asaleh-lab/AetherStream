@@ -1,0 +1,23 @@
+# Build the Flink decision-engine job (optimization recommendations).
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /workspace
+RUN apk add --no-cache bash
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+COPY core core
+COPY services/write-side services/write-side
+COPY services/datasource services/datasource
+COPY services/outbox-relay services/outbox-relay
+COPY services/api-gateway services/api-gateway
+COPY services/stream-processor services/stream-processor
+COPY services/decision-engine services/decision-engine
+RUN chmod +x mvnw \
+    && ./mvnw -pl services/decision-engine -am package -DskipTests -q
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /workspace/services/decision-engine/target/decision-engine.jar app.jar
+ENV AETHER_KAFKA_BOOTSTRAP=kafka:9092
+ENV AETHER_KAFKA_OFFSET_RESET=latest
+ENV AETHER_EFFICIENCY_TARGET=0.85
+ENTRYPOINT ["java", "-jar", "app.jar"]

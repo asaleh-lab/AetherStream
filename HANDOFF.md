@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-06 (weather stack removed — two-stream pipeline)
+Last updated: 2026-06-06 (decision-engine: optimization recommendations)
 
 ## 1. What this project is
 
@@ -48,9 +48,19 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 4. Current status
 
-**Branch:** `refactor/remove-weather-stack` (weather removed; two-stream pipeline)  
-**Base:** `main` (Phase 6 merged — all 6 phases complete)  
-**Optional follow-up:** `decision-engine` optimization recommendations (P3 in spec).
+**Branch:** `feat/decision-engine`  
+**Base:** `main` (Phase 6 merged — all 6 phases complete)
+
+### Decision engine (2026-06-06)
+
+- [x] Flink `decision-engine`: consume `energy-state-events`, apply optimization rules, emit `recommendations`
+- [x] Rules: low-efficiency turbine/load suggestion; surplus-capacity grid-balancing suggestion
+- [x] Read model: `recommendations` table (Flyway V2), gateway Kafka consumer, idempotent upsert
+- [x] Query API: `GET /api/recommendations`; WebSocket push type `recommendation`
+- [x] Blazor **Recommendations** page + nav item; bootstrap + realtime wiring
+- [x] `decision-engine` service in [infra/docker-compose.yml](infra/docker-compose.yml)
+- [x] Unit tests: `OptimizationRulesTest`, `RecommendationFunctionTest`
+- [x] Gateway integration test extended for recommendations topic projection
 
 ### Weather removal (2026-06-06)
 
@@ -87,7 +97,7 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - [x] Event-time watermarks with 5s allowed lateness
 - [x] `stream-processor` in [infra/docker-compose.yml](infra/docker-compose.yml)
 - [x] Pipeline + operator harness tests (aggregation, anomaly, envelope parsing)
-- [ ] Decision engine (`decision-engine` skeleton → optimization recommendations; deferred)
+- [x] Decision engine (`decision-engine`): optimization recommendations from energy state
 
 ### Phase 5 — complete (merged PR #5)
 
@@ -107,17 +117,20 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Flyway migrations: `core/infrastructure/src/main/resources/db/migration/V1__init.sql`
 - **Write-side ingest** (CQRS + outbox): `http://localhost:8080/api/ingest/{turbine|grid}`
 - **Query APIs** (read side): `http://localhost:8085/api/energy/latest`, `/api/alerts`,
-  `/api/turbines/{id}`
+  `/api/recommendations`, `/api/turbines/{id}`
 - **WebSocket** (real-time push): `ws://localhost:8085/ws/realtime`
 - **Blazor UI**: `http://localhost:8086` (compose `--profile full`) or `dotnet run --project ui/blazor-dashboard`
 - **Compose services**: `write-side` (8080), `datasource` (8081), `outbox-relay` (8084),
-  `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port).
+  `api-gateway` (8085), `blazor-dashboard` (8086, profile `full`), `stream-processor` (Flink job, no HTTP port),
+  `decision-engine` (Flink job, no HTTP port).
 - Datasource env: `AETHER_WRITE_SIDE_URL=http://write-side:8080` (Docker internal).
 - Datasource intervals (defaults): turbine 5s, grid 15s — see
   `services/datasource/src/main/resources/application.yml`.
 - Kafka: host `localhost:9094`, Docker-internal `kafka:9092`.
 - Stream processor env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_VIBRATION_THRESHOLD` (default 1.0),
   `AETHER_KAFKA_OFFSET_RESET` (`latest` in compose, `earliest` for replay).
+- Decision engine env: `AETHER_KAFKA_BOOTSTRAP`, `AETHER_EFFICIENCY_TARGET` (default 0.85),
+  `AETHER_KAFKA_OFFSET_RESET`.
 - Turbine→region mapping (stream join): T-001/T-002 → `north-sea`, T-003 → `baltic`.
 - First `docker compose up --build` is slow (Maven + .NET inside images); subsequent runs use cache.
 - Stop host Java processes before compose if ports 8080–8081 or 8085–8086 are already taken.
@@ -131,14 +144,15 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 
 ## 6. Open items / blockers
 
-- All 6 phases merged to `main`.
-- `decision-engine` still skeleton (optimization recommendations — optional follow-up).
+- Open PR for `feat/decision-engine` when ready.
+- Existing Postgres volumes need Flyway V2 migration (`recommendations` table) on next `api-gateway` / `write-side` startup.
+- Observability profile is on separate branch `feat/observability-profile`.
 
 ## 7. How to resume (copy into a new chat)
 
 ```
-AetherStream Phase 6 is complete. Weather stack removed — two-stream pipeline (turbine + grid).
-Read HANDOFF.md for optional follow-ups (decision-engine).
+AetherStream decision-engine is on feat/decision-engine (User Story 4). Read HANDOFF.md.
+Rebuild compose to start aether-decision-engine; run kafka-init if recommendations topic is missing.
 ```
 
 ## 8. Recent commits (chronological)

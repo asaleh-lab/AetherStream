@@ -9,6 +9,7 @@ public sealed class DashboardState
 
     public IReadOnlyList<EnergyStateDto> EnergyStates { get; private set; } = [];
     public IReadOnlyList<AlertDto> Alerts { get; private set; } = [];
+    public IReadOnlyList<RecommendationDto> Recommendations { get; private set; } = [];
     public IReadOnlyList<TurbineDto> Turbines { get; private set; } = [];
     public bool GatewayReachable { get; private set; }
     public bool RealtimeConnected { get; private set; }
@@ -63,6 +64,29 @@ public sealed class DashboardState
                 list.Insert(0, alert);
             }
             Alerts = list;
+        }
+        Notify();
+    }
+
+    public void SetRecommendations(IEnumerable<RecommendationDto> recommendations)
+    {
+        lock (_lock)
+        {
+            Recommendations = recommendations.ToList();
+        }
+        Notify();
+    }
+
+    public void PrependRecommendation(RecommendationDto recommendation)
+    {
+        lock (_lock)
+        {
+            var list = Recommendations.ToList();
+            if (list.All(r => r.Id != recommendation.Id))
+            {
+                list.Insert(0, recommendation);
+            }
+            Recommendations = list;
         }
         Notify();
     }

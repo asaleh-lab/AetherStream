@@ -9,6 +9,7 @@ import com.aetherstream.domain.model.AlertType;
 import com.aetherstream.domain.model.Severity;
 import com.aetherstream.infrastructure.persistence.repository.AlertRepository;
 import com.aetherstream.infrastructure.persistence.repository.EnergyStateSnapshotRepository;
+import com.aetherstream.infrastructure.persistence.repository.RecommendationRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -60,6 +61,9 @@ class ApiGatewayProjectionIntegrationTest {
     private AlertRepository alertRepository;
 
     @Autowired
+    private RecommendationRepository recommendationRepository;
+
+    @Autowired
     private TestRestTemplate restTemplate;
 
     @Test
@@ -100,9 +104,26 @@ class ApiGatewayProjectionIntegrationTest {
         producer.send(Topics.ENERGY_STATE_EVENTS, "north-sea", energyJson);
         producer.send(Topics.ALERTS, "T-001", alertJson);
 
+        UUID recommendationEventId = UUID.randomUUID();
+        String recommendationJson =
+                """
+                {"eventId":"%s","eventType":"%s","occurredAt":"%s","correlationId":"%s",\
+                "payload":{"id":"%s","region":"north-sea",\
+                "suggestion":"Increase turbine output in north-sea","timestamp":"%s"}}
+                """
+                        .formatted(
+                                recommendationEventId,
+                                EventTypes.RECOMMENDATION_ISSUED,
+                                timestamp,
+                                correlationId,
+                                recommendationEventId,
+                                timestamp);
+        producer.send(Topics.RECOMMENDATIONS, "north-sea", recommendationJson);
+
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
             assertThat(energyStateSnapshotRepository.findById(energyEventId)).isPresent();
             assertThat(alertRepository.findById(alertEventId)).isPresent();
+            assertThat(recommendationRepository.findById(recommendationEventId)).isPresent();
         });
 
         var energyEntity = energyStateSnapshotRepository.findById(energyEventId).orElseThrow();
@@ -116,6 +137,10 @@ class ApiGatewayProjectionIntegrationTest {
         var response = restTemplate.getForEntity("/api/alerts?limit=10", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("T-001");
+
+        var recommendationsResponse = restTemplate.getForEntity("/api/recommendations?limit=10", String.class);
+        assertThat(recommendationsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(recommendationsResponse.getBody()).contains("north-sea");
     }
 
     private KafkaTemplate<String, String> kafkaProducer() {

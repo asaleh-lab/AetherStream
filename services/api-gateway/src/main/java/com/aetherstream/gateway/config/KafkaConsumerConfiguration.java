@@ -35,5 +35,6 @@ public class KafkaConsumerConfiguration {
 
     public static final String ENERGY_STATE_TOPIC = Topics.ENERGY_STATE_EVENTS;
     public static final String ALERTS_TOPIC = Topics.ALERTS;
+    public static final String RECOMMENDATIONS_TOPIC = Topics.RECOMMENDATIONS;
     public static final String TURBINE_TOPIC = Topics.TURBINE_EVENTS;
 }
