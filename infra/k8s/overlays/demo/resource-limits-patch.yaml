@@ -141,3 +141,39 @@ spec:
             limits:
               cpu: 300m
               memory: 384Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blazor-dashboard
+  namespace: aether
+spec:
+  template:
+    spec:
+      containers:
+        - name: blazor-dashboard
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: aether
+spec:
+  template:
+    spec:
+      containers:
+        - name: grafana
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

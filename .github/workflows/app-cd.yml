@@ -103,8 +103,10 @@ jobs:
         env:
           PG_HOST: ${{ secrets.AZURE_PG_HOST }}
           PG_PASSWORD: ${{ secrets.AZURE_PG_PASSWORD }}
+          KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME }}
         run: |
           REGISTRY="${{ env.ACR_NAME }}.azurecr.io"
+          KV="${KEY_VAULT_NAME:-aether4adcdemokv}"
           kubectl create namespace aether --dry-run=client -o yaml | kubectl apply -f -
           cd infra/k8s/overlays/demo
           kustomize edit set image \
@@ -113,41 +115,16 @@ jobs:
             aetherdemoacr.azurecr.io/outbox-relay=${REGISTRY}/outbox-relay:${IMAGE_TAG} \
             aetherdemoacr.azurecr.io/api-gateway=${REGISTRY}/api-gateway:${IMAGE_TAG} \
             aetherdemoacr.azurecr.io/stream-processor=${REGISTRY}/stream-processor:${IMAGE_TAG} \
-            aetherdemoacr.azurecr.io/decision-engine=${REGISTRY}/decision-engine:${IMAGE_TAG}
+            aetherdemoacr.azurecr.io/decision-engine=${REGISTRY}/decision-engine:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/blazor-dashboard=${REGISTRY}/blazor-dashboard:${IMAGE_TAG} \
+            aetherdemoacr.azurecr.io/grafana=${REGISTRY}/grafana:${IMAGE_TAG}
           kustomize build . | kubectl apply -f -
           kubectl -n aether create secret generic aether-secrets \
             --from-literal=AETHER_DB_URL="jdbc:postgresql://${PG_HOST}:5432/aetherstream" \
             --from-literal=AETHER_DB_PASSWORD="${PG_PASSWORD}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway
-
-  deploy-appservice:
-    name: Deploy App Service containers
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: demo
-    steps:
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Update Blazor container
-        run: |
-          az webapp config container set \
-            --resource-group ${{ env.AKS_RG }} \
-            --name ${{ vars.BLAZOR_APP_NAME }} \
-            --docker-custom-image-name "${{ env.ACR_NAME }}.azurecr.io/blazor-dashboard:${IMAGE_TAG}" \
-            --docker-registry-server-url "https://${{ env.ACR_NAME }}.azurecr.io"
-          az webapp restart --resource-group ${{ env.AKS_RG }} --name ${{ vars.BLAZOR_APP_NAME }}
-
-      - name: Update Grafana container
-        run: |
-          az webapp config container set \
-            --resource-group ${{ env.AKS_RG }} \
-            --name ${{ vars.GRAFANA_APP_NAME }} \
-            --docker-custom-image-name "${{ env.ACR_NAME }}.azurecr.io/grafana:${IMAGE_TAG}" \
-            --docker-registry-server-url "https://${{ env.ACR_NAME }}.azurecr.io"
-          az webapp restart --resource-group ${{ env.AKS_RG }} --name ${{ vars.GRAFANA_APP_NAME }}
+          GRAFANA_PW=$(az keyvault secret show --vault-name "$KV" --name grafana-admin-password --query value -o tsv)
+          kubectl -n aether create secret generic grafana-secrets \
+            --from-literal=GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_PW" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway deployment/blazor-dashboard deployment/grafana

@@ -185,7 +185,7 @@ docker compose -f infra/docker-compose.yml --profile full ps -a
 
 ## Azure deployment (Terraform)
 
-The same demo stack can run on Azure with **lowest viable SKUs** (~**$80/mo** with App Service B1;
+The same demo stack can run on Azure with **lowest viable SKUs** (~**$85/mo** with UI on AKS;
 see [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)). Full runbook:
 [infra/terraform/README.md](infra/terraform/README.md).
 
@@ -197,22 +197,22 @@ flowchart TB
 
   subgraph Azure["Azure subscription — AetherStream"]
     subgraph Public["Public edge (cost-optimized — no AGW/WAF)"]
-      ASP["App Service Plan B1"]
-      Blazor["aether-demo-blazor"]
-      Grafana["aether-demo-grafana"]
-      ASP --> Blazor
-      ASP --> Grafana
+      BlazorLB["blazor-dashboard LB"]
+      GrafanaLB["grafana LB"]
     end
 
     subgraph VNet["VNet aether-demo-vnet"]
       subgraph AKS["AKS — 1× node"]
+        Blazor["Blazor"]
+        Graf["Grafana"]
         ILB["Internal LoadBalancers"]
         GW["api-gateway"]
         Back["write-side · relay · Kafka · Flink"]
+        Blazor --> GW
+        Graf --> ILB
         ILB --> GW
         GW --- Back
       end
-      DNS["Private DNS<br/>*.aether-demo.internal"]
     end
 
     subgraph Platform["Shared platform"]
@@ -225,38 +225,34 @@ flowchart TB
     GH["GitHub Actions<br/>OIDC → deploy"]
   end
 
-  User -->|HTTPS| Blazor
-  User -->|HTTPS| Grafana
-  Blazor -->|VNet + private DNS| GW
-  Grafana -->|VNet + private DNS| ILB
+  User -->|HTTP| BlazorLB
+  User -->|HTTP| GrafanaLB
+  BlazorLB --> Blazor
+  GrafanaLB --> Graf
   AKS --> PG
   AKS --> ACR
-  Blazor --> ACR
-  Grafana --> ACR
   GH --> ACR
   GH --> AKS
-  GH --> Blazor
-  GH --> Grafana
 ```
 
-After `terraform apply`, open `terraform output dashboard_url` and `ops_url` (App Service HTTPS).
-Application Gateway and WAF are omitted for cost.
+After `kubectl apply -k infra/k8s/overlays/demo`, open the public LoadBalancer IPs for Blazor and Grafana (`kubectl get svc -n aether`). Application Gateway and WAF are omitted for cost.
 
 ### Deliberately omitted for cost
 
 This demo Terraform **does not** deploy production edge and isolation controls from early
-hub-spoke designs. They were removed to stay within starter credits (~**$80/mo** with B1 UI)
+hub-spoke designs. They were removed to stay within starter credits (~**$85/mo** with UI on AKS)
 and to keep teardown simple:
 
 | Omitted | Why |
 |---------|-----|
-| **Application Gateway** | ~$200/mo fixed cost — largest line item; App Service HTTPS is the public front door |
+| **Application Gateway** | ~$200/mo fixed cost — largest line item; AKS LoadBalancer HTTP is the public front door |
 | **WAF (Web Application Firewall)** | Requires Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
-| **Private endpoints** (UI, PostgreSQL, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity / RBAC instead |
+| **Private endpoints** (PostgreSQL, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity / RBAC instead |
 | **Hub-spoke VNet peering** | Single VNet is sufficient at demo scale |
-| **Premium ACR / App Service P1v3** | Only required for private-link designs |
+| **App Service** | B1 Web quota unavailable in North Europe on this subscription |
+| **Premium ACR** | Only required for private-link designs |
 
-**Privacy trade-off:** Blazor and Grafana are on **public App Service URLs**. Backend
+**Privacy trade-off:** Blazor and Grafana are on **public AKS LoadBalancer IPs**. Backend
 streaming (api-gateway, Kafka, Flink, write-side) stays on **internal AKS LoadBalancers** — not
 Internet-routable. For production, reintroduce Application Gateway + WAF, private endpoints, and
 network isolation.

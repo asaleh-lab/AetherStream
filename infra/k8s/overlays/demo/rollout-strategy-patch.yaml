@@ -60,3 +60,21 @@ metadata:
 spec:
   strategy:
     type: Recreate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blazor-dashboard
+  namespace: aether
+spec:
+  strategy:
+    type: Recreate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: aether
+spec:
+  strategy:
+    type: Recreate

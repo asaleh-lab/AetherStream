@@ -1,23 +1,24 @@
 # AetherStream Azure Infrastructure (Terraform)
 
-Single-VNet demo: **App Service B1** (Blazor + Grafana on one shared plan) as the public front,
-**AKS** for the streaming backbone, lowest viable SKUs throughout. GitHub Actions CD via OIDC.
+Single-VNet demo: **AKS** hosts the full stack — streaming backbone **and** public UI
+(Blazor + Grafana via LoadBalancer Services). Lowest viable SKUs throughout. GitHub Actions CD via OIDC.
 
 ## Deliberately omitted for cost
 
 The following are **not deployed** in this demo stack. They were cut to keep monthly spend near
-**~$80/mo** and to avoid always-on edge infrastructure:
+**~$85/mo** and to avoid always-on edge infrastructure:
 
 | Not deployed | Rationale |
 |---|---|
-| **Application Gateway** | ~$200/mo fixed — largest cost; App Service HTTPS URLs are the public front door instead |
+| **Application Gateway** | ~$200/mo fixed — largest cost; AKS public LoadBalancers are the front door instead |
 | **WAF (Web Application Firewall)** | Tied to Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
 | **Private endpoints** (UI, DB, registry, vault) | ~$7/mo each; public endpoints + RBAC/managed identity instead |
 | **Hub-spoke networking** | Extra VNet, peering, and DNS complexity without benefit at demo scale |
-| **Premium SKU tiers** (ACR Premium, App Service P1v3) | Required only for private-link designs |
-| **Linux VM for UI** | Replaced by App Service B1 (~$13/mo) after Web quota upgrade |
+| **Premium SKU tiers** (ACR Premium) | Required only for private-link designs |
+| **App Service** | B1 Web quota unavailable (0) in North Europe on this subscription |
+| **Linux VM for UI** | Removed earlier; UI runs on AKS |
 
-**Privacy note:** Blazor and Grafana are on **public App Service URLs** (`*.azurewebsites.net`).
+**Privacy note:** Blazor and Grafana are on **public AKS LoadBalancer IPs** (HTTP).
 Streaming backends remain on internal AKS LoadBalancers (api-gateway ILB, Prometheus ILB) — not
 Internet-routable. PostgreSQL, ACR, and Key Vault use **public network paths** with Azure defaults;
 treat secrets and data as demo-only.
@@ -33,21 +34,13 @@ flowchart LR
   end
 
   subgraph RG["Resource group rg-aether-demo"]
-    ASP["App Service Plan B1"]
-    BLAZOR["aether-demo-blazor"]
-    GRAF["aether-demo-grafana"]
-    ASP --> BLAZOR
-    ASP --> GRAF
-
     subgraph VNet["VNet 10.1.0.0/16"]
       subgraph AKS["AKS snet-aks"]
+        BLAZOR["blazor-dashboard<br/>public LB"]
+        GRAF["grafana<br/>public LB"]
         AGW_ILB["api-gateway ILB<br/>10.1.0.10"]
-        PROM_ILB["Prometheus ILB<br/>10.1.0.11"]
+        PROM["Prometheus"]
         PODS["Kafka · Flink · write-side<br/>· relay · datasource"]
-      end
-      subgraph UiNet["snet-appsvc"]
-        BLAZOR
-        GRAF
       end
       PDNS["Private DNS zone<br/>aether-demo.internal"]
     end
@@ -58,25 +51,21 @@ flowchart LR
     LAW["Log Analytics"]
   end
 
-  U -->|HTTPS| BLAZOR
-  U -->|HTTPS| GRAF
-  BLAZOR -->|HTTP :8085| PDNS
-  PDNS --> AGW_ILB
-  GRAF -->|HTTP :9090| PDNS
-  PDNS --> PROM_ILB
+  U -->|HTTP| BLAZOR
+  U -->|HTTP| GRAF
+  BLAZOR -->|cluster DNS :8085| AGW_ILB
+  GRAF -->|cluster DNS :9090| PROM
   PODS --- AGW_ILB
   AKS --> PG
   AKS --> ACR
-  BLAZOR --> ACR
-  GRAF --> ACR
 ```
 
 **Traffic flow**
 
-1. User opens Blazor / Grafana on App Service URLs (`dashboard_url`, `ops_url` outputs).
-2. Blazor server-side calls `http://api-gateway.aether-demo.internal:8085` over the VNet.
-3. Grafana reads Prometheus at `http://prometheus.aether-demo.internal:9090` the same way.
-4. GitHub Actions (OIDC) builds images → ACR, deploys K8s manifests to AKS, updates App Service containers.
+1. User opens Blazor / Grafana on public LoadBalancer IPs (`kubectl get svc -n aether`).
+2. Blazor calls `http://api-gateway:8085` in-cluster.
+3. Grafana reads Prometheus at `http://prometheus:9090` in-cluster.
+4. GitHub Actions (OIDC) builds images → ACR, deploys all manifests to AKS.
 
 ## Layout
 
@@ -85,26 +74,27 @@ infra/terraform/
   bootstrap/              # One-time: remote state + GitHub OIDC app registration
   environments/demo/      # Demo environment root module
   modules/
-    networking/           # VNet, subnets, internal private DNS
-    security/             # Key Vault, managed identities, generated secrets
+    networking/           # VNet, AKS subnet, internal private DNS
+    security/             # Key Vault, generated secrets
     data/                 # PostgreSQL, ACR, Log Analytics
     compute-aks/          # AKS cluster
-    compute-appservice/   # Blazor + Grafana (shared B1 plan)
     observability/        # Diagnostic settings → Log Analytics
 ```
 
+UI manifests live in `infra/k8s/base/blazor-dashboard/` and `infra/k8s/base/grafana/`.
+
 ## Prerequisites
 
-- Azure subscription with **Web/App Service quota** (B1 plan)
+- Azure subscription with **Compute** quota for AKS (1 node)
 - [Terraform](https://www.terraform.io/downloads) >= 1.6
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) logged in (`az login`)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) + AKS credentials
 - GitHub repository with Environments enabled (`demo`)
 
 Register providers (once per subscription):
 
 ```powershell
 az provider register --namespace Microsoft.ContainerService
-az provider register --namespace Microsoft.Web
 az provider register --namespace Microsoft.Network
 az provider register --namespace Microsoft.DBforPostgreSQL
 az provider register --namespace Microsoft.KeyVault
@@ -130,36 +120,36 @@ terraform plan
 terraform apply
 ```
 
-Note `dashboard_url` and `ops_url` outputs (App Service HTTPS URLs).
-
-## Step 3 — Deploy workloads
+## Step 3 — Deploy workloads (including UI)
 
 ```powershell
 az aks get-credentials --resource-group rg-aether-demo --name aether-demo-aks
 $pgPass = az keyvault secret show --vault-name aether4adcdemokv --name postgres-admin-password --query value -o tsv
+$grafPass = az keyvault secret show --vault-name aether4adcdemokv --name grafana-admin-password --query value -o tsv
 kubectl create namespace aether --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -k infra/k8s/overlays/demo
 kubectl -n aether create secret generic aether-secrets `
   --from-literal=AETHER_DB_URL="jdbc:postgresql://aether-demo-pg.postgres.database.azure.com:5432/aetherstream" `
   --from-literal=AETHER_DB_PASSWORD="$pgPass" `
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway
+kubectl -n aether create secret generic grafana-secrets `
+  --from-literal=GF_SECURITY_ADMIN_PASSWORD="$grafPass" `
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl get svc blazor-dashboard grafana -n aether
 ```
-
-Set GitHub Environment vars: `BLAZOR_APP_NAME=aether-demo-blazor`, `GRAFANA_APP_NAME=aether-demo-grafana`.
 
 ## Public vs private exposure
 
 | Surface | Access |
 |---|---|
-| App Service (Blazor + Grafana) | Public HTTPS (`dashboard_url`, `ops_url`) |
+| Blazor + Grafana (AKS LoadBalancers) | Public HTTP — `kubectl get svc -n aether` |
 | api-gateway, write-side, Kafka, Flink | AKS internal / ILB only |
 | PostgreSQL, ACR, Key Vault | Public endpoints (demo cost model) |
 
 ## CD pipelines
 
 - `.github/workflows/infra-cd.yml` — Terraform plan on PR, apply on `main`
-- `.github/workflows/app-cd.yml` — Build/push images, deploy AKS + App Service
+- `.github/workflows/app-cd.yml` — Build/push images, deploy all AKS workloads
 
 Both use GitHub OIDC; no long-lived Azure client secrets in the repo.
 
@@ -170,7 +160,7 @@ See [SMOKE-VERIFY.md](SMOKE-VERIFY.md).
 ## Cost notes
 
 See [COST-ESTIMATE.md](COST-ESTIMATE.md). Application Gateway and WAF alone would add ~$200/mo;
-App Service B1 adds ~$13/mo for both UI apps on one plan.
+two public LoadBalancers for UI add ~$36/mo vs App Service B1 (~$13/mo) which was unavailable on quota.
 
 ## Rollback
 

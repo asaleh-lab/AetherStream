@@ -3,21 +3,23 @@ output "resource_group_name" {
 }
 
 output "dashboard_url" {
-  description = "Public Blazor dashboard URL (App Service)."
-  value       = var.enable_app_service ? module.compute_appservice[0].blazor_url : null
+  description = "Public Blazor URL (AKS LoadBalancer). Run the command in dashboard_url_command after kubectl apply."
+  value       = null
 }
 
 output "ops_url" {
-  description = "Public Grafana URL (App Service)."
-  value       = var.enable_app_service ? module.compute_appservice[0].grafana_url : null
+  description = "Public Grafana URL (AKS LoadBalancer). Run the command in ops_url_command after kubectl apply."
+  value       = null
 }
 
-output "blazor_hostname" {
-  value = var.enable_app_service ? module.compute_appservice[0].blazor_default_hostname : null
+output "dashboard_url_command" {
+  description = "Print Blazor dashboard URL after UI pods are deployed."
+  value       = "kubectl get svc blazor-dashboard -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}{\"\\n\"}'"
 }
 
-output "grafana_hostname" {
-  value = var.enable_app_service ? module.compute_appservice[0].grafana_default_hostname : null
+output "ops_url_command" {
+  description = "Print Grafana URL after UI pods are deployed."
+  value       = "kubectl get svc grafana -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}{\"\\n\"}'"
 }
 
 output "acr_login_server" {
@@ -46,12 +48,4 @@ output "key_vault_name" {
 
 output "api_gateway_internal_host" {
   value = var.api_gateway_internal_host
-}
-
-output "blazor_app_name" {
-  value = var.enable_app_service ? module.compute_appservice[0].blazor_name : null
-}
-
-output "grafana_app_name" {
-  value = var.enable_app_service ? module.compute_appservice[0].grafana_name : null
 }

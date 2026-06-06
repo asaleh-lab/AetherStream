@@ -19,32 +19,6 @@ resource "azurerm_role_assignment" "terraform_kv_secrets" {
   principal_id         = var.terraform_principal_id
 }
 
-resource "azurerm_user_assigned_identity" "blazor" {
-  name                = "${var.prefix}-blazor"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_user_assigned_identity" "grafana" {
-  name                = "${var.prefix}-grafana"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_role_assignment" "blazor_kv_secrets_user" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.blazor.principal_id
-}
-
-resource "azurerm_role_assignment" "grafana_kv_secrets_user" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.grafana.principal_id
-}
-
 resource "random_password" "postgres_admin" {
   length  = 24
   special = true

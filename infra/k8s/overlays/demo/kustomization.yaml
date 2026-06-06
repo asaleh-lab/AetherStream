@@ -23,6 +23,12 @@ images:
   - name: aetherstream/decision-engine
     newName: aetherdemoacr.azurecr.io/decision-engine
     newTag: latest
+  - name: aetherstream/blazor-dashboard
+    newName: aetherdemoacr.azurecr.io/blazor-dashboard
+    newTag: latest
+  - name: aetherstream/grafana
+    newName: aetherdemoacr.azurecr.io/grafana
+    newTag: latest
 
 patches:
   - path: api-gateway-service-patch.yaml

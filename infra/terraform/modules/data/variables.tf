@@ -49,16 +49,6 @@ variable "acr_sku" {
   default = "Basic"
 }
 
-variable "blazor_identity_principal_id" {
-  type    = string
-  default = ""
-}
-
-variable "grafana_identity_principal_id" {
-  type    = string
-  default = ""
-}
-
 variable "github_actions_principal_id" {
   type    = string
   default = ""

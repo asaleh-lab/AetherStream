@@ -50,18 +50,6 @@ resource "azurerm_container_registry" "main" {
   tags                          = var.tags
 }
 
-resource "azurerm_role_assignment" "acr_pull_blazor" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = var.blazor_identity_principal_id
-}
-
-resource "azurerm_role_assignment" "acr_pull_grafana" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = var.grafana_identity_principal_id
-}
-
 resource "azurerm_role_assignment" "acr_push_github" {
   scope                = azurerm_container_registry.main.id
   role_definition_name = "AcrPush"

@@ -30,16 +30,14 @@ module "security" {
 module "data" {
   source = "../../modules/data"
 
-  prefix                        = var.prefix
-  location                      = var.location
-  resource_group_name           = azurerm_resource_group.main.name
-  tags                          = var.tags
-  postgres_admin_password       = module.security.postgres_admin_password
-  postgres_sku_name             = var.postgres_sku_name
+  prefix                       = var.prefix
+  location                     = var.location
+  resource_group_name          = azurerm_resource_group.main.name
+  tags                         = var.tags
+  postgres_admin_password      = module.security.postgres_admin_password
+  postgres_sku_name            = var.postgres_sku_name
   acr_sku                       = var.acr_sku
   log_analytics_retention_days  = var.log_analytics_retention_days
-  blazor_identity_principal_id  = module.security.blazor_identity_principal_id
-  grafana_identity_principal_id = module.security.grafana_identity_principal_id
   github_actions_principal_id   = var.github_actions_principal_id
 }
 
@@ -80,41 +78,10 @@ resource "azurerm_private_dns_a_record" "prometheus" {
   records             = [var.prometheus_ilb_ip]
 }
 
-module "compute_appservice" {
-  count  = var.enable_app_service ? 1 : 0
-  source = "../../modules/compute-appservice"
-
-  prefix                     = var.prefix
-  location                   = var.location
-  resource_group_name        = azurerm_resource_group.main.name
-  tags                       = var.tags
-  app_service_plan_sku       = var.app_service_plan_sku
-  appsvc_subnet_id           = module.networking.appsvc_subnet_id
-  acr_login_server           = module.data.acr_login_server
-  blazor_identity_id         = module.security.blazor_identity_id
-  blazor_identity_client_id  = module.security.blazor_identity_client_id
-  grafana_identity_id        = module.security.grafana_identity_id
-  grafana_identity_client_id = module.security.grafana_identity_client_id
-  blazor_image               = var.blazor_image
-  grafana_image              = var.grafana_image
-  api_gateway_internal_host  = var.api_gateway_internal_host
-  grafana_admin_password     = module.security.grafana_admin_password
-  prometheus_internal_host   = var.prometheus_internal_host
-
-  depends_on = [azurerm_private_dns_a_record.api_gateway]
-}
-
 module "observability" {
   source = "../../modules/observability"
 
   prefix                     = var.prefix
-  location                   = var.location
-  resource_group_name        = azurerm_resource_group.main.name
-  tags                       = var.tags
   log_analytics_workspace_id = module.data.log_analytics_workspace_id
-  app_service_ids = var.enable_app_service ? {
-    blazor  = module.compute_appservice[0].blazor_id
-    grafana = module.compute_appservice[0].grafana_id
-  } : {}
-  aks_id = module.compute_aks.aks_id
+  aks_id                     = module.compute_aks.aks_id
 }

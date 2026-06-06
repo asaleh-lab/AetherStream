@@ -23,8 +23,3 @@ variable "aks_subnet_prefix" {
   type    = string
   default = "10.1.0.0/20"
 }
-
-variable "appsvc_subnet_prefix" {
-  type    = string
-  default = "10.1.16.0/24"
-}

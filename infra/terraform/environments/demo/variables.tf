@@ -38,11 +38,6 @@ variable "log_analytics_retention_days" {
   default = 30
 }
 
-variable "app_service_plan_sku" {
-  type    = string
-  default = "B1"
-}
-
 variable "api_gateway_ilb_ip" {
   description = "Static internal IP for api-gateway LoadBalancer (must be free in snet-aks)."
   type        = string
@@ -50,31 +45,21 @@ variable "api_gateway_ilb_ip" {
 }
 
 variable "prometheus_ilb_ip" {
-  description = "Static internal IP for Prometheus LoadBalancer (Grafana App Service datasource)."
+  description = "Static internal IP for Prometheus LoadBalancer."
   type        = string
   default     = "10.1.0.11"
 }
 
 variable "api_gateway_internal_host" {
-  description = "Private DNS name Blazor uses to reach api-gateway."
+  description = "Private DNS name for api-gateway ILB (optional external consumers)."
   type        = string
   default     = "api-gateway.aether-demo.internal"
 }
 
 variable "prometheus_internal_host" {
-  description = "Private DNS name Grafana uses to reach Prometheus."
+  description = "Private DNS name for Prometheus ILB (optional external consumers)."
   type        = string
   default     = "prometheus.aether-demo.internal"
-}
-
-variable "blazor_image" {
-  type    = string
-  default = "blazor-dashboard:latest"
-}
-
-variable "grafana_image" {
-  type    = string
-  default = "grafana:latest"
 }
 
 variable "github_actions_principal_id" {
@@ -87,12 +72,6 @@ variable "key_vault_name" {
   description = "Globally unique Key Vault name override."
   type        = string
   default     = "aether4adcdemokv"
-}
-
-variable "enable_app_service" {
-  description = "Deploy Blazor + Grafana on one shared App Service Plan (B1 minimum for containers)."
-  type        = bool
-  default     = true
 }
 
 variable "tags" {
