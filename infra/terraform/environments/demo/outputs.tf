@@ -3,23 +3,13 @@ output "resource_group_name" {
 }
 
 output "dashboard_url" {
-  description = "Public Blazor URL (AKS LoadBalancer). Run the command in dashboard_url_command after kubectl apply."
+  description = "Public Blazor URL is recorded in the motivation letter (not emitted by Terraform)."
   value       = null
 }
 
 output "ops_url" {
-  description = "Public Grafana URL (AKS LoadBalancer). Run the command in ops_url_command after kubectl apply."
+  description = "Public Grafana URL is recorded in the motivation letter (not emitted by Terraform)."
   value       = null
-}
-
-output "dashboard_url_command" {
-  description = "Print Blazor dashboard URL after UI pods are deployed."
-  value       = "kubectl get svc blazor-dashboard -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}{\"\\n\"}'"
-}
-
-output "ops_url_command" {
-  description = "Print Grafana URL after UI pods are deployed."
-  value       = "kubectl get svc grafana -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}{\"\\n\"}'"
 }
 
 output "acr_login_server" {

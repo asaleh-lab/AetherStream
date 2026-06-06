@@ -49,8 +49,7 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 ## 5. Environment notes / gotchas
 
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
-- **Blazor UI (Azure):** `kubectl get svc blazor-dashboard -n aether` → public LB IP
-- **Grafana (Azure):** `kubectl get svc grafana -n aether`; password in Key Vault `grafana-admin-password`
+- **Blazor + Grafana (Azure):** public LoadBalancer URLs and login credentials are in the **motivation letter** (not in repo docs)
 - **AKS secrets:** `aether-secrets` + `grafana-secrets` (from Key Vault in CD) — not in kustomize base
 - **Single AKS node:** demo overlay uses low CPU requests + Recreate strategy
 
@@ -74,7 +73,7 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 ## 7. Open items
 
 - [ ] `terraform apply` — remove orphaned App Service identities / appsvc subnet from state
-- [ ] Deploy UI manifests + smoke verify LB URLs
+- [ ] Deploy UI manifests + smoke verify (URLs in motivation letter)
 - [ ] Merge PR #11 (update description for AKS UI)
 
 Local compose: `docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build`

@@ -2,23 +2,24 @@
 
 Run after `terraform apply` and `kubectl apply` (AKS backbone + UI LoadBalancers).
 
+**Live demo URLs and login credentials** (Blazor, Grafana) are in the **motivation letter** — use those endpoints for reviewer-facing smoke checks. They are intentionally omitted from this repository.
+
 ## 1. Network exposure
 
-```powershell
-$dashboard = kubectl get svc blazor-dashboard -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}'
-$ops = kubectl get svc grafana -n aether -o jsonpath='http://{.status.loadBalancer.ingress[0].ip}'
+Using the Blazor and Grafana URLs from the motivation letter:
 
-curl -I "$dashboard/health"
-curl -I "$ops/api/health"
+```powershell
+curl -I "<blazor-url>/health"
+curl -I "<grafana-url>/api/health"
 ```
 
 Expected: Blazor and Grafana are publicly reachable on **AKS public LoadBalancer** URLs (HTTP).
 
-Wait for `EXTERNAL-IP` on both services (`kubectl get svc -n aether blazor-dashboard grafana -w`).
+Wait for both services to show an `EXTERNAL-IP` before testing (`kubectl get svc -n aether blazor-dashboard grafana -w`).
 
 ## 2. Blazor dashboard (live data)
 
-1. Open `$dashboard` from above.
+1. Open the Blazor URL from the motivation letter.
 2. Confirm connection badge shows gateway connected.
 3. Verify pages update without refresh:
    - Energy overview cards
@@ -28,8 +29,8 @@ Wait for `EXTERNAL-IP` on both services (`kubectl get svc -n aether blazor-dashb
 
 ## 3. Grafana (ops UI)
 
-1. Open `$ops` from above.
-2. Login with admin credentials from Key Vault secret `grafana-admin-password`.
+1. Open the Grafana URL from the motivation letter.
+2. Log in with the credentials provided there.
 3. Confirm Prometheus datasource is healthy (Explore → Prometheus metrics).
 
 ## 4. Private backends
@@ -60,8 +61,8 @@ Expected: `No changes.`
 | Symptom | Check |
 |---|---|
 | Blazor shows disconnected | `kubectl -n aether logs deployment/blazor-dashboard`; api-gateway pod healthy; in-cluster DNS `api-gateway:8085` |
-| Blazor unhealthy | `kubectl -n aether describe pod -l app=blazor-dashboard`; ACR image pull; `/health` on LB URL |
-| Grafana login fails | `kubectl -n aether get secret grafana-secrets`; Key Vault `grafana-admin-password` |
+| Blazor unhealthy | `kubectl -n aether describe pod -l app=blazor-dashboard`; ACR image pull; `/health` on the motivation-letter URL |
+| Grafana login fails | `kubectl -n aether get secret grafana-secrets`; Key Vault secret `grafana-admin-password` (synced by `app-cd`) |
 | No Kafka events | `kubectl -n aether logs job/kafka-init`; `kubectl -n aether get pods` |
 | Flyway errors | `aether-secrets` from Key Vault (not kustomize); `kubectl get secret aether-secrets -o yaml` |
 | Pods Pending (CPU) | Demo overlay resource limits; or set `aks_node_count = 2` in tfvars |

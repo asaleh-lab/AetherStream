@@ -62,7 +62,7 @@ flowchart LR
 
 **Traffic flow**
 
-1. User opens Blazor / Grafana on public LoadBalancer IPs (`kubectl get svc -n aether`).
+1. User opens Blazor / Grafana on public LoadBalancer IPs (URLs in the **motivation letter**).
 2. Blazor calls `http://api-gateway:8085` in-cluster.
 3. Grafana reads Prometheus at `http://prometheus:9090` in-cluster.
 4. GitHub Actions (OIDC) builds images → ACR, deploys all manifests to AKS.
@@ -124,25 +124,29 @@ terraform apply
 
 ```powershell
 az aks get-credentials --resource-group rg-aether-demo --name aether-demo-aks
-$pgPass = az keyvault secret show --vault-name aether4adcdemokv --name postgres-admin-password --query value -o tsv
-$grafPass = az keyvault secret show --vault-name aether4adcdemokv --name grafana-admin-password --query value -o tsv
+$kv = terraform output -raw key_vault_name
+$pgHost = terraform output -raw postgres_fqdn
+$pgDb = terraform output -raw postgres_database_name
+$pgPass = az keyvault secret show --vault-name $kv --name postgres-admin-password --query value -o tsv
+$grafPass = az keyvault secret show --vault-name $kv --name grafana-admin-password --query value -o tsv
 kubectl create namespace aether --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -k infra/k8s/overlays/demo
 kubectl -n aether create secret generic aether-secrets `
-  --from-literal=AETHER_DB_URL="jdbc:postgresql://aether-demo-pg.postgres.database.azure.com:5432/aetherstream" `
+  --from-literal=AETHER_DB_URL="jdbc:postgresql://${pgHost}:5432/${pgDb}" `
   --from-literal=AETHER_DB_PASSWORD="$pgPass" `
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n aether create secret generic grafana-secrets `
   --from-literal=GF_SECURITY_ADMIN_PASSWORD="$grafPass" `
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl get svc blazor-dashboard grafana -n aether
 ```
+
+Public Blazor and Grafana URLs are recorded in the **motivation letter** for reviewers — not in this repository.
 
 ## Public vs private exposure
 
 | Surface | Access |
 |---|---|
-| Blazor + Grafana (AKS LoadBalancers) | Public HTTP — `kubectl get svc -n aether` |
+| Blazor + Grafana (AKS LoadBalancers) | Public HTTP — URLs in the **motivation letter** |
 | api-gateway, write-side, Kafka, Flink | AKS internal / ILB only |
 | PostgreSQL, ACR, Key Vault | Public endpoints (demo cost model) |
 

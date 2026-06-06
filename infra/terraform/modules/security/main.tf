@@ -27,6 +27,11 @@ resource "random_password" "postgres_admin" {
 resource "random_password" "grafana_admin" {
   length  = 20
   special = false
+
+  keepers = {
+    # Bump to rotate after an accidental credential exposure in git history.
+    rotation = "2026-06-06-v2"
+  }
 }
 
 resource "azurerm_key_vault_secret" "postgres_admin_password" {

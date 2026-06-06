@@ -118,7 +118,7 @@ Open-source stack for log search and service metrics — no license cost when se
 | **Promtail** | Ships Docker container logs to Loki |
 | **Prometheus** | Scrapes Spring Boot `/actuator/prometheus` every 15s |
 
-**Grafana:** `http://localhost:3000` — login `admin` / `aether` (local demo only).
+**Grafana (local):** `http://localhost:3000` — login `admin` / `admin` (local Docker Compose only). Live Azure demo URLs and credentials are in the **motivation letter**.
 
 Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 
@@ -235,7 +235,7 @@ flowchart TB
   GH --> AKS
 ```
 
-After `kubectl apply -k infra/k8s/overlays/demo`, open the public LoadBalancer IPs for Blazor and Grafana (`kubectl get svc -n aether`). Application Gateway and WAF are omitted for cost.
+After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Application Gateway and WAF are omitted for cost.
 
 ### Deliberately omitted for cost
 
