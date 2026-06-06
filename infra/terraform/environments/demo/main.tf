@@ -36,9 +36,9 @@ module "data" {
   tags                         = var.tags
   postgres_admin_password      = module.security.postgres_admin_password
   postgres_sku_name            = var.postgres_sku_name
-  acr_sku                       = var.acr_sku
-  log_analytics_retention_days  = var.log_analytics_retention_days
-  github_actions_principal_id   = var.github_actions_principal_id
+  acr_sku                      = var.acr_sku
+  log_analytics_retention_days = var.log_analytics_retention_days
+  github_actions_principal_id  = var.github_actions_principal_id
 }
 
 module "compute_aks" {
