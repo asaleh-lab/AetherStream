@@ -1,0 +1,39 @@
+# Collects stdout from AetherStream pods in the aether namespace (AKS demo).
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: kubernetes-aether
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - aether
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: write-side|datasource|outbox-relay|api-gateway|stream-processor|decision-engine|blazor-dashboard
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: service
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: (.+)
+        target_label: container
+        replacement: aether-$1
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+        separator: /
+        target_label: __path__
+        replacement: /var/log/pods/*$1/*.log
+    pipeline_stages:
+      - cri: {}
+      - labeldrop:
+          - filename
+          - pod

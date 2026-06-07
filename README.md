@@ -122,7 +122,8 @@ Open-source stack for log search and service metrics — no license cost when se
 
 Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 
-**Explore logs (Grafana → Explore → Loki)** — start with a broad query, then narrow down:
+**Explore logs (Grafana → Explore → Loki)** — start with a broad query, then narrow down.
+The same LogQL works in **local Docker Compose** and **Azure AKS** (`container` labels match):
 
 ```logql
 # Start here — all application containers (should always show lines)
@@ -136,6 +137,9 @@ Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Log
 ```
 
 Set the time range to **Last 15 minutes** if the view looks empty.
+
+On **Azure**, Promtail runs as a DaemonSet and ships pod stdout to in-cluster Loki; Grafana
+provisions both Loki and Prometheus (same as `--profile observability` locally).
 
 **Troubleshooting empty Loki results:** metrics and logs are separate systems. If Prometheus
 has data but Explore looks empty, you are usually filtering too aggressively (e.g. the
@@ -206,10 +210,14 @@ flowchart TB
         Blazor["Blazor"]
         Graf["Grafana"]
         ILB["Internal LoadBalancers"]
+        Loki["Loki"]
+        Promtail["Promtail"]
         GW["api-gateway"]
         Back["write-side · relay · Kafka · Flink"]
         Blazor --> GW
         Graf --> ILB
+        Graf --> Loki
+        Promtail --> Loki
         ILB --> GW
         GW --- Back
       end
@@ -235,7 +243,7 @@ flowchart TB
   GH --> AKS
 ```
 
-After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Application Gateway and WAF are omitted for cost.
+After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Grafana on AKS includes **Loki + Prometheus** (log and metrics parity with local `--profile observability`). Application Gateway and WAF are omitted for cost.
 
 ### Deliberately omitted for cost
 
@@ -263,7 +271,8 @@ network isolation.
 
 Feature-complete for the portfolio demo. All six delivery phases are done: write-side + outbox,
 relay, Flink stream processing (aggregation, anomaly detection, decision-engine recommendations),
-API gateway, Blazor dashboard, and optional observability profile — all in docker-compose.
+API gateway, Blazor dashboard, and observability (Grafana + Loki + Prometheus + Promtail) —
+locally via compose `--profile observability`, on Azure via AKS manifests in `infra/k8s/base/`.
 Track session state in [HANDOFF.md](HANDOFF.md).
 
 ## License

@@ -127,4 +127,4 @@ jobs:
           kubectl -n aether create secret generic grafana-secrets \
             --from-literal=GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_PW" \
             --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway deployment/blazor-dashboard deployment/grafana
+          kubectl -n aether rollout restart deployment/write-side deployment/outbox-relay deployment/api-gateway deployment/blazor-dashboard deployment/grafana deployment/loki daemonset/promtail

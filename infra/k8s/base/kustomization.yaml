@@ -22,6 +22,9 @@ resources:
   - stream-processor/deployment.yaml
   - decision-engine/deployment.yaml
   - prometheus/deployment.yaml
+  - loki/deployment.yaml
+  - promtail/rbac.yaml
+  - promtail/daemonset.yaml
   - blazor-dashboard/deployment.yaml
   - blazor-dashboard/service.yaml
   - grafana/deployment.yaml

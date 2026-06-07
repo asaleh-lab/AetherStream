@@ -26,6 +26,8 @@ spec:
               value: admin
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            - name: LOKI_URL
+              value: http://loki:3100
             - name: PROMETHEUS_URL
               value: http://prometheus:9090
           envFrom:
@@ -45,7 +47,7 @@ spec:
             periodSeconds: 20
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 128Mi
             limits:
               cpu: 300m

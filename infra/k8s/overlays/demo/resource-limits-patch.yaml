@@ -118,11 +118,47 @@ spec:
         - name: prometheus
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 128Mi
             limits:
               cpu: 250m
               memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: aether
+spec:
+  template:
+    spec:
+      containers:
+        - name: loki
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: promtail
+  namespace: aether
+spec:
+  template:
+    spec:
+      containers:
+        - name: promtail
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -172,7 +208,7 @@ spec:
         - name: grafana
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 128Mi
             limits:
               cpu: 300m

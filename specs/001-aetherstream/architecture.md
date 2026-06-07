@@ -193,6 +193,11 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 - Optional local stack (`--profile observability` in compose): **Grafana** (UI), **Loki** (logs),
   **Promtail** (Docker log shipper), **Prometheus** (scrapes `/actuator/prometheus` on JVM services).
   Config lives in `infra/observability/`. All components are open source and free to self-host.
+- **Azure AKS demo** runs the same Grafana + Loki + Promtail + Prometheus stack in-cluster
+  (`infra/k8s/base/{grafana,loki,promtail,prometheus}/`). Promtail uses Kubernetes pod discovery
+  instead of the Docker socket; log labels (`container=aether-*`) match local compose so dashboards
+  and LogQL queries work unchanged. Platform diagnostics (AKS control plane, PostgreSQL) still
+  flow to Azure Log Analytics via Terraform — that is separate from application log search in Grafana.
 
 ## 11. Local deployment
 

@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-06 (UI on AKS — App Service dropped)
+Last updated: 2026-06-07 (AKS Loki + Promtail — Grafana log parity with local compose)
 
 ## 1. What this project is
 
@@ -39,6 +39,7 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 ### Azure demo (2026-06-06)
 
 - [x] **UI on AKS** — Blazor + Grafana as Deployments with public LoadBalancer Services
+- [x] **Observability on AKS** — Loki + Promtail + Prometheus in-cluster; Grafana provisions Loki + Prometheus (parity with local `--profile observability`)
 - [x] App Service path removed (`compute-appservice` module deleted; B1 quota unavailable in northeurope)
 - [x] `app-cd.yml` — single AKS deploy job (backbone + UI)
 - [x] AKS backbone smoke green
@@ -51,7 +52,7 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 - Shell is **PowerShell** on Windows. Use `;` not `&&`.
 - **Blazor + Grafana (Azure):** public LoadBalancer URLs and login credentials are in the **motivation letter** (not in repo docs)
 - **AKS secrets:** `aether-secrets` + `grafana-secrets` (from Key Vault in CD) — not in kustomize base
-- **Single AKS node:** demo overlay uses low CPU requests + Recreate strategy
+- **Single AKS node:** demo overlay uses low CPU requests + Recreate strategy; Loki/Promtail/Grafana/Prometheus share the node (~1.9 vCPU allocatable) — if pods stay `Pending` with `Insufficient cpu`, trim requests in `resource-limits-patch.yaml` or set `aks_node_count = 2`
 
 ## 6. Azure deployment (Terraform + CD)
 
