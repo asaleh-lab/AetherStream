@@ -29,7 +29,7 @@ flowchart TB
         PROM["Prometheus"]
         LOKI["Loki"]
         PROMTAIL["Promtail"]
-        PODS["Kafka · Flink · write-side<br/>· relay · datasource"]
+        PODS["Kafka · write-side · relay<br/>· datasource · Flink jobs"]
       end
       PDNS["Private DNS aether-demo.internal"]
     end
@@ -79,8 +79,22 @@ infra/terraform/
     observability/        # Diagnostic settings → Log Analytics
 ```
 
-UI and observability manifests live in `infra/k8s/base/` (`blazor-dashboard`, `grafana`,
-`loki`, `promtail`, `prometheus`).
+UI and observability manifests live in `infra/k8s/base/`.
+
+### AKS workloads (`aether` namespace)
+
+| Workload | Kind | Notes |
+|----------|------|-------|
+| kafka | StatefulSet | KRaft single broker |
+| kafka-init | Job | One-shot topic creation |
+| write-side, datasource, outbox-relay, api-gateway | Deployment | Spring Boot services |
+| stream-processor, decision-engine | Deployment | Flink shaded jars |
+| blazor-dashboard, grafana | Deployment | Public LoadBalancer Services |
+| prometheus, loki | Deployment | In-cluster; Prometheus also has internal LB |
+| promtail | DaemonSet | Ships pod logs to Loki |
+
+Local parity: same services in [Docker Compose](../../docker-compose.yml). Reviewer quick-start:
+[README](../../README.md#local-demo).
 
 ## Prerequisites
 
