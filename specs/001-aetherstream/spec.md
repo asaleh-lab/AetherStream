@@ -1,10 +1,12 @@
 # Feature Specification: AetherStream Wind-Energy Real-Time Monitoring Platform
 
-**Feature Branch**: `phase-1/infra-skeleton`
+**Feature Branch**: `001-aetherstream` (merged to `main`)
 
 **Created**: 2026-06-05
 
 **Status**: Complete
+
+Reviewer entry point: [README.md](../../README.md) (reviewer instructions, architecture diagrams, local demo).
 
 **Input**: Portfolio brief: a production-shaped, event-driven streaming platform for wind
 energy monitoring built on Kafka + CQRS + Outbox + Flink-style stream processing (JVM),
@@ -126,8 +128,9 @@ per-turbine state.
 - **FR-006**: System MUST join turbine and grid streams to produce `energy-state-events` containing `timestamp`, `region`, `totalWindPower`, `gridDemand`, `efficiencyScore`.
 - **FR-007**: System MUST detect anomalies (vibration spikes, turbine failure patterns, grid overload risk) and emit alerts to the `alerts` topic.
 - **FR-008**: System MUST produce optimization recommendations from the current energy state.
-- **FR-009**: System MUST expose command APIs (`POST /api/ingest/turbine`, `/api/ingest/grid`) and query APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/turbines/{id}`).
-- **FR-010**: System MUST push energy-state updates and alerts to clients over WebSocket.
+- **FR-009**: System MUST expose command APIs (`POST /api/ingest/turbine`, `/api/ingest/grid`) and query APIs (`GET /api/energy/latest`, `/api/alerts`, `/api/recommendations`, `/api/turbines/{id}`).
+- **FR-010**: System MUST push energy-state updates, alerts, recommendations, and turbine
+  telemetry to clients over WebSocket (`/ws/realtime`).
 - **FR-011**: Read and write models MUST be separated (CQRS); commands MUST NOT serve reads and queries MUST NOT mutate state.
 - **FR-012**: System MUST persist turbine state, energy-state snapshots, alerts, and `outbox_events` in PostgreSQL, with schema managed by Flyway.
 - **FR-013**: System MUST emit structured JSON logs and propagate a correlation id across API -> DB -> outbox -> Kafka -> stream processing.
@@ -150,7 +153,7 @@ per-turbine state.
 - **SC-001**: After ingestion, 100% of committed readings result in exactly one logical event reaching Kafka (no loss; duplicates deduped downstream), verified under a crash-after-commit test.
 - **SC-002**: An ingested reading is reflected in the dashboard's live energy state within 5 seconds end to end under nominal local load.
 - **SC-003**: A vibration value above threshold produces a visible severity-styled alert within 5 seconds.
-- **SC-004**: The full local environment (Kafka + Postgres + all services + UI) starts from `docker-compose` plus documented run steps with no manual schema setup (Flyway applies migrations automatically).
+- **SC-004**: The full local environment (Kafka + Postgres + all services + UI + observability) starts from `docker compose -f infra/docker-compose.yml up -d --build` with no manual schema setup (Flyway applies migrations automatically).
 - **SC-005**: Reliability-critical paths (outbox relay, CQRS handlers, producers/consumers, stream processors) have passing Testcontainers-backed integration tests.
 
 ## Assumptions
@@ -161,3 +164,6 @@ per-turbine state.
 - Stream processing is implemented with Apache Flink (or Flink-style semantics) on the JVM; "Flink-style" means real windowing/join/keyed-state semantics, not a literal port.
 - The UI is .NET 10 Blazor Server with Radzen, a separate process from the JVM backend, communicating over REST + WebSocket.
 - Exactly-once is achieved at the system level via at-least-once delivery plus idempotent consumers, not via Kafka transactional exactly-once across all hops.
+- Development was specification-driven with spec-kit tooling and AI (Cursor); abbreviated
+  pipeline (no `plan.md`/`tasks.md`). Process detail: [HANDOFF.md](../../HANDOFF.md#development-process-spec-driven).
+- The same application stack runs locally (Docker Compose) and on Azure AKS with Grafana, Loki, Promtail, and Prometheus.

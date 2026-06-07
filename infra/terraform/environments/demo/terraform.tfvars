@@ -6,7 +6,7 @@ prometheus_ilb_ip         = "10.1.0.11"
 api_gateway_internal_host = "api-gateway.aether-demo.internal"
 prometheus_internal_host  = "prometheus.aether-demo.internal"
 
-# --- Demo cost controls (see infra/terraform/COST-ESTIMATE.md) ---
+# --- Demo sizing (lowest viable SKUs) ---
 aks_node_count               = 1
 aks_vm_size                  = "Standard_EC2as_v5"
 acr_sku                      = "Basic"

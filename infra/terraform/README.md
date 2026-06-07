@@ -1,68 +1,61 @@
 # AetherStream Azure Infrastructure (Terraform)
 
 Single-VNet demo: **AKS** hosts the full stack — streaming backbone **and** public UI
-(Blazor + Grafana via LoadBalancer Services). Lowest viable SKUs throughout. GitHub Actions CD via OIDC.
+(Blazor + Grafana via LoadBalancer Services). GitHub Actions CD via OIDC.
 
-## Deliberately omitted for cost
+## Omitted for price consideration
 
-The following are **not deployed** in this demo stack. They were cut to keep monthly spend near
-**~$85/mo** and to avoid always-on edge infrastructure:
-
-| Not deployed | Rationale |
-|---|---|
-| **Application Gateway** | ~$200/mo fixed — largest cost; AKS public LoadBalancers are the front door instead |
-| **WAF (Web Application Firewall)** | Tied to Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
-| **Private endpoints** (UI, DB, registry, vault) | ~$7/mo each; public endpoints + RBAC/managed identity instead |
-| **Hub-spoke networking** | Extra VNet, peering, and DNS complexity without benefit at demo scale |
-| **Premium SKU tiers** (ACR Premium) | Required only for private-link designs |
-| **App Service** | B1 Web quota unavailable (0) in North Europe on this subscription |
-| **Linux VM for UI** | Removed earlier; UI runs on AKS |
-
-**Privacy note:** Blazor and Grafana are on **public AKS LoadBalancer IPs** (HTTP).
-Streaming backends remain on internal AKS LoadBalancers (api-gateway ILB, Prometheus ILB) — not
-Internet-routable. PostgreSQL, ACR, and Key Vault use **public network paths** with Azure defaults;
-treat secrets and data as demo-only.
-
-Reintroduce Application Gateway, WAF, private endpoints, and hub-spoke isolation for production.
+- Application Gateway and WAF
+- Private endpoints (PostgreSQL, ACR, Key Vault)
+- Hub-spoke VNet peering
+- Premium ACR / private-link registry
+- Multi-node AKS and zone redundancy
+- App Service or standalone VMs for UI and Grafana — **Blazor and Grafana run in the AKS cluster** (public LoadBalancer Services) instead
 
 ## Architecture
 
+Canonical Azure diagram (also linked from the repo [README](../../README.md#azure-deployment)):
+
 ```mermaid
-flowchart LR
-  subgraph Internet
-    U([User])
-  end
+flowchart TB
+  User([User / reviewer])
 
   subgraph RG["Resource group rg-aether-demo"]
     subgraph VNet["VNet 10.1.0.0/16"]
       subgraph AKS["AKS snet-aks"]
         BLAZOR["blazor-dashboard<br/>public LB"]
         GRAF["grafana<br/>public LB"]
-        AGW_ILB["api-gateway ILB<br/>10.1.0.10"]
+        AGW_ILB["api-gateway ILB"]
         PROM["Prometheus"]
         LOKI["Loki"]
         PROMTAIL["Promtail"]
-        PODS["Kafka · Flink · write-side<br/>· relay · datasource"]
+        PODS["Kafka · write-side · relay<br/>· datasource · Flink jobs"]
       end
-      PDNS["Private DNS zone<br/>aether-demo.internal"]
+      PDNS["Private DNS aether-demo.internal"]
     end
 
-    PG[("PostgreSQL<br/>B_Standard_B1ms")]
-    ACR["ACR Basic"]
+    PG[("PostgreSQL")]
+    ACR["ACR"]
     KV["Key Vault"]
     LAW["Log Analytics"]
+    GH["GitHub Actions<br/>OIDC deploy"]
   end
 
-  U -->|HTTP| BLAZOR
-  U -->|HTTP| GRAF
-  BLAZOR -->|cluster DNS :8085| AGW_ILB
-  GRAF -->|cluster DNS :9090| PROM
-  GRAF -->|cluster DNS :3100| LOKI
-  PROMTAIL -->|push| LOKI
+  User -->|HTTP| BLAZOR
+  User -->|HTTP| GRAF
+  BLAZOR -->|:8085| AGW_ILB
+  GRAF -->|:9090| PROM
+  GRAF -->|:3100| LOKI
+  PROMTAIL --> LOKI
   PODS --- AGW_ILB
   AKS --> PG
   AKS --> ACR
+  GH --> ACR
+  GH --> AKS
 ```
+
+Blazor and Grafana are deployed **inside the AKS cluster** (public LoadBalancer Services), not on
+App Service or separate VMs — a cost-driven placement choice.
 
 **Traffic flow**
 
@@ -86,8 +79,22 @@ infra/terraform/
     observability/        # Diagnostic settings → Log Analytics
 ```
 
-UI and observability manifests live in `infra/k8s/base/` (`blazor-dashboard`, `grafana`,
-`loki`, `promtail`, `prometheus`).
+UI and observability manifests live in `infra/k8s/base/`.
+
+### AKS workloads (`aether` namespace)
+
+| Workload | Kind | Notes |
+|----------|------|-------|
+| kafka | StatefulSet | KRaft single broker |
+| kafka-init | Job | One-shot topic creation |
+| write-side, datasource, outbox-relay, api-gateway | Deployment | Spring Boot services |
+| stream-processor, decision-engine | Deployment | Flink shaded jars |
+| blazor-dashboard, grafana | Deployment | Public LoadBalancer Services |
+| prometheus, loki | Deployment | In-cluster; Prometheus also has internal LB |
+| promtail | DaemonSet | Ships pod logs to Loki |
+
+Local parity: same services in [Docker Compose](../../docker-compose.yml). Reviewer quick-start:
+[README](../../README.md#local-demo).
 
 ## Prerequisites
 
@@ -154,7 +161,7 @@ Public Blazor and Grafana URLs are recorded in the **motivation letter** for rev
 |---|---|
 | Blazor + Grafana (AKS LoadBalancers) | Public HTTP — URLs in the **motivation letter** |
 | api-gateway, write-side, Kafka, Flink | AKS internal / ILB only |
-| PostgreSQL, ACR, Key Vault | Public endpoints (demo cost model) |
+| PostgreSQL, ACR, Key Vault | Public endpoints |
 
 ## CD pipelines
 
@@ -166,11 +173,6 @@ Both use GitHub OIDC; no long-lived Azure client secrets in the repo.
 ## Smoke verification
 
 See [SMOKE-VERIFY.md](SMOKE-VERIFY.md).
-
-## Cost notes
-
-See [COST-ESTIMATE.md](COST-ESTIMATE.md). Application Gateway and WAF alone would add ~$200/mo;
-two public LoadBalancers for UI add ~$36/mo vs App Service B1 (~$13/mo) which was unavailable on quota.
 
 ## Rollback
 

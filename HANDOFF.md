@@ -1,80 +1,83 @@
-# AetherStream - Handoff
+# AetherStream — Handoff
 
-Cross-session state for the AetherStream build. Update this at the end of every working
-session. It is the first thing to read when resuming in a new chat.
+Cross-session continuity for a **specification-driven** build. **Reviewers start with
+[README.md](README.md)** for how to run the demo; use this file for process context and
+contributor notes.
 
-Last updated: 2026-06-07 (AKS Loki + Promtail — Grafana log parity with local compose)
+Last updated: 2026-06-07
 
-## 1. What this project is
+## Project
 
-A portfolio-grade, real-time wind-energy monitoring platform demonstrating an event-driven
-streaming architecture: Kafka backbone, Outbox pattern, CQRS, Flink-style stream
-processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative specs:
+Real-time wind-energy monitoring: Kafka backbone, Outbox pattern, CQRS, Flink-style stream
+processing on the JVM, .NET 10 Blazor + Radzen UI.
 
-- Principles: [.specify/memory/constitution.md](.specify/memory/constitution.md)
-- Functional spec: [specs/001-aetherstream/spec.md](specs/001-aetherstream/spec.md)
-- Architecture: [specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md)
+## Development process (spec-driven)
 
-## 2. Locked decisions
+[spec-kit](https://github.com/github/spec-kit) is initialized (`.specify/`, Cursor skills).
+The build stayed specification-driven, but **abbreviated** the canonical
+`plan.md` → `tasks.md` pipeline to move fast with AI (Cursor):
 
-- Stack: **Java 21 + Spring Boot 3.3 + Apache Flink 1.19 + Kafka (KRaft) + PostgreSQL 16**
-  backend; **.NET 10 Blazor Server + Radzen** UI over REST + WebSocket. (Hybrid polyglot.)
-- Build: **Maven multi-module reactor** + committed Maven Wrapper (`mvnw`).
-- Reliability: Outbox pattern, at-least-once + idempotent consumers (not end-to-end EOS).
-- Process: **real spec-kit** (`.specify/`), **HANDOFF.md** for continuity.
-- Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
-- GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
-- **Azure UI:** **AKS public LoadBalancers** for Blazor + Grafana (no App Service — B1 quota blocked).
-- **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` + optional
-  `--profile full` (Blazor) and `--profile observability` (Grafana).
+| Step | Artifact | Path |
+|------|----------|------|
+| Principles | Constitution | [.specify/memory/constitution.md](.specify/memory/constitution.md) |
+| Specify | Functional spec | [specs/001-aetherstream/spec.md](specs/001-aetherstream/spec.md) |
+| Plan (merged) | Architecture | [specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md) |
+| Continuity | **This handoff** | `HANDOFF.md` — locked decisions, deployment layout, gotchas across sessions |
+| Implement | Codebase | Services, UI, `infra/` |
 
-## 3. Roadmap (6 phases)
+**Not in repo:** `plan.md`, `tasks.md` (no generated task checklist). `architecture.md`
+covers what a full spec-kit plan would hold; **HANDOFF.md** carries session-to-session
+state that would otherwise live in tasks and handoff updates during a longer spec-kit run.
 
-All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
+That is intentional for a short AI-assisted timeline: specs constrain design; the running
+system is the proof of implementation.
 
-## 4. Current status
+## Implemented stack
 
-**Branch:** `feat/azure-demo-infrastructure`
+| Layer | Components |
+|-------|------------|
+| Producers | `datasource` (turbine 5s, grid 15s simulators) |
+| Write path | `write-side`, `outbox-relay`, PostgreSQL, Flyway |
+| Streaming | Kafka (KRaft), `stream-processor`, `decision-engine` |
+| Read path | `api-gateway` (REST + WebSocket), Blazor dashboard |
+| Observability | Grafana, Loki, Promtail, Prometheus |
+| Local | `docker compose -f infra/docker-compose.yml up -d --build` |
+| Azure | AKS + Terraform; manifests `infra/k8s/overlays/demo` |
 
-### Azure demo (2026-06-06)
+**APIs (implemented):** `POST /api/ingest/turbine|grid` (write-side);
+`GET /api/energy/latest`, `/api/alerts`, `/api/recommendations`, `/api/turbines/{id}` (gateway);
+`ws://…/ws/realtime` (gateway → UI).
 
-- [x] **UI on AKS** — Blazor + Grafana as Deployments with public LoadBalancer Services
-- [x] **Observability on AKS** — Loki + Promtail + Prometheus in-cluster; Grafana provisions Loki + Prometheus (parity with local `--profile observability`)
-- [x] App Service path removed (`compute-appservice` module deleted; B1 quota unavailable in northeurope)
-- [x] `app-cd.yml` — single AKS deploy job (backbone + UI)
-- [x] AKS backbone smoke green
-- [x] Docs updated — AGW/WAF still **omitted for cost**
-- [ ] `terraform apply` — tear down unused App Service identities / appsvc subnet
-- [ ] End-to-end smoke per [SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md)
+Repo: https://github.com/asaleh-lab/AetherStream
 
-## 5. Environment notes / gotchas
+## Deployment layout
 
-- Shell is **PowerShell** on Windows. Use `;` not `&&`.
-- **Blazor + Grafana (Azure):** public LoadBalancer URLs and login credentials are in the **motivation letter** (not in repo docs)
-- **AKS secrets:** `aether-secrets` + `grafana-secrets` (from Key Vault in CD) — not in kustomize base
-- **Single AKS node:** demo overlay uses low CPU requests + Recreate strategy; Loki/Promtail/Grafana/Prometheus share the node (~1.9 vCPU allocatable) — if pods stay `Pending` with `Insufficient cpu`, trim requests in `resource-limits-patch.yaml` or set `aks_node_count = 2`
+| Path | Purpose |
+|------|---------|
+| [infra/docker-compose.yml](infra/docker-compose.yml) | Full local stack (15 containers) |
+| [infra/k8s/base/](infra/k8s/base/) | AKS manifests (backbone + UI + observability) |
+| [infra/k8s/overlays/demo](infra/k8s/overlays/demo) | Demo image tags + resource limits |
+| [infra/terraform/](infra/terraform/) | Azure platform (AKS, PostgreSQL, ACR, Key Vault) |
+| [infra/terraform/README.md](infra/terraform/README.md) | Deploy runbook + architecture diagram |
+| [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md) | Post-deploy verification |
 
-## 6. Azure deployment (Terraform + CD)
+Live Azure URLs and Grafana credentials: **motivation letter** (not in repo).
 
-- **Terraform:** [infra/terraform/](infra/terraform/) — AKS + platform only (no App Service)
-- **Kubernetes:** [infra/k8s/overlays/demo](infra/k8s/overlays/demo) — backbone + UI
-- **CD:** `infra-cd.yml` + `app-cd.yml`
+**Omitted for price consideration** (same as [README.md](README.md)): Application Gateway/WAF,
+private endpoints, hub-spoke networking, Premium ACR, multi-node/zone-redundant AKS; Blazor and
+Grafana run in-cluster on AKS instead of App Service or standalone VMs.
 
-### Deliberately omitted for cost
+## Build from source (contributors)
 
-| Omitted | Why |
-|---------|-----|
-| **Application Gateway** | ~$200/mo; AKS LoadBalancer HTTP is the edge |
-| **WAF** | Requires AGW WAF_v2 |
-| **Private endpoints** | ~$7/mo each |
-| **Hub-spoke networking** | Single VNet at demo scale |
-| **App Service** | B1 quota 0 in northeurope on this subscription |
-| **Premium SKUs** | Private-link designs only |
+- **Java:** JDK 21 — `.\mvnw.cmd -DskipTests package`
+- **UI:** .NET 10 SDK — `dotnet build ui/blazor-dashboard`
+- **UI dev server:** `dotnet run --project ui/blazor-dashboard` (default port 5000)
+- **Smoke script:** `.\scripts\smoke-ingest.ps1 -SkipCommit`
 
-## 7. Open items
+## Contributor notes
 
-- [ ] `terraform apply` — remove orphaned App Service identities / appsvc subnet from state
-- [ ] Deploy UI manifests + smoke verify (URLs in motivation letter)
-- [ ] Merge PR #11 (update description for AKS UI)
-
-Local compose: `docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build`
+- Shell: **PowerShell** on Windows — chain commands with `;` not `&&`.
+- AKS secrets (`aether-secrets`, `grafana-secrets`) are injected from Key Vault in CD; not in kustomize base.
+- Demo overlay targets a single AKS node (~1.9 vCPU allocatable). If pods stay `Pending` with `Insufficient cpu`, adjust [resource-limits-patch.yaml](infra/k8s/overlays/demo/resource-limits-patch.yaml) or set `aks_node_count = 2`.
+- Prometheus uses job `spring-services` in both Compose and AKS (same PromQL as README Explore links).
+- Git workflow: feature branches → PR → `main`, Conventional Commits.

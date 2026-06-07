@@ -1,8 +1,15 @@
 # Azure Demo Smoke Verification
 
-Run after `terraform apply` and `kubectl apply` (AKS backbone + UI LoadBalancers).
+Run after `terraform apply` and `kubectl apply -k infra/k8s/overlays/demo`.
 
-**Live demo URLs and login credentials** (Blazor, Grafana) are in the **motivation letter** — use those endpoints for reviewer-facing smoke checks. They are intentionally omitted from this repository.
+**Live demo URLs and login credentials** (Blazor, Grafana) are in the **motivation letter**.
+Local stack parity and Grafana Explore links: [README](../../README.md#local-demo).
+
+### Expected pods (`kubectl get pods -n aether`)
+
+All should reach `Running` (or `kafka-init` `Completed`): kafka, write-side, datasource,
+outbox-relay, stream-processor, decision-engine, api-gateway, blazor-dashboard, grafana, loki,
+prometheus, promtail (DaemonSet), plus completed `kafka-init` job.
 
 ## 1. Network exposure
 
@@ -33,16 +40,16 @@ Wait for both services to show an `EXTERNAL-IP` before testing (`kubectl get svc
 2. Log in with the credentials provided there.
 3. Confirm **Loki** and **Prometheus** datasources are healthy (Configuration → Data sources).
 4. Explore logs: **Explore → Loki** — try `{container="aether-datasource"}` (Last 15 minutes).
-5. Explore metrics: **Explore → Prometheus** — e.g. `up{job=~"write-side|api-gateway"}`.
+5. Explore metrics: **Explore → Prometheus** — e.g. `rate(http_server_requests_seconds_count{job="spring-services"}[1m])`.
 6. Open dashboard **AetherStream → AetherStream Logs** (same queries as local compose).
 
 ## 4. Private backends
 
 From a machine **without** VNet access, these must not respond on public IPs:
 
-- `write-side`, `datasource`, `outbox-relay` HTTP ports
+- `write-side`, `datasource`, `outbox-relay`, `stream-processor`, `decision-engine` HTTP ports
 - Kafka broker
-- api-gateway ILB (10.1.0.10) — not routable from Internet
+- api-gateway ILB (`10.1.0.10`) and Prometheus ILB (`10.1.0.11`) — not routable from Internet
 
 ## 5. Infrastructure drift
 

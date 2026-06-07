@@ -7,23 +7,18 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
+      evaluation_interval: 15s
     scrape_configs:
-      - job_name: write-side
+      - job_name: spring-services
         metrics_path: /actuator/prometheus
         static_configs:
-          - targets: ['write-side:8080']
-      - job_name: datasource
-        metrics_path: /actuator/prometheus
-        static_configs:
-          - targets: ['datasource:8081']
-      - job_name: outbox-relay
-        metrics_path: /actuator/prometheus
-        static_configs:
-          - targets: ['outbox-relay:8084']
-      - job_name: api-gateway
-        metrics_path: /actuator/prometheus
-        static_configs:
-          - targets: ['api-gateway:8085']
+          - targets:
+              - write-side:8080
+              - datasource:8081
+              - outbox-relay:8084
+              - api-gateway:8085
+            labels:
+              stack: aetherstream
 ---
 apiVersion: apps/v1
 kind: Deployment
