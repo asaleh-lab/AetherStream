@@ -11,7 +11,7 @@ public sealed class GatewayApiClient(IHttpClientFactory httpClientFactory, ILogg
         "T-006", "T-007", "T-008", "T-009", "T-010"
     ];
 
-    public async Task BootstrapAsync(DashboardState state, CancellationToken cancellationToken = default)
+    public async Task<bool> BootstrapAsync(DashboardState state, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -37,11 +37,13 @@ public sealed class GatewayApiClient(IHttpClientFactory httpClientFactory, ILogg
                 .ToList();
             state.SetTurbines(turbines);
             state.SetGatewayReachable(true);
+            return true;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to bootstrap dashboard from gateway");
             state.SetGatewayReachable(false, ex.Message);
+            return false;
         }
     }
 

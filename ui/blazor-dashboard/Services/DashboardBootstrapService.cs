@@ -6,15 +6,20 @@ public sealed class DashboardBootstrapService(
     DashboardState dashboardState,
     ILogger<DashboardBootstrapService> logger) : BackgroundService
 {
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(3);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try
+        while (!stoppingToken.IsCancellationRequested)
         {
-            await gatewayApiClient.BootstrapAsync(dashboardState, stoppingToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Dashboard bootstrap failed");
+            if (await gatewayApiClient.BootstrapAsync(dashboardState, stoppingToken))
+            {
+                logger.LogInformation("Dashboard bootstrap completed");
+                return;
+            }
+
+            logger.LogWarning("Dashboard bootstrap failed; retrying in {DelaySeconds}s", RetryDelay.TotalSeconds);
+            await Task.Delay(RetryDelay, stoppingToken);
         }
     }
 }
