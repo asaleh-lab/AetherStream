@@ -13,10 +13,20 @@ resource "azurerm_key_vault" "main" {
   tags                          = var.tags
 }
 
-resource "azurerm_role_assignment" "terraform_kv_secrets" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = var.terraform_principal_id
+resource "azurerm_role_assignment" "github_actions_kv_secrets" {
+  scope                            = azurerm_key_vault.main.id
+  role_definition_name             = "Key Vault Secrets Officer"
+  principal_id                     = var.github_actions_principal_id
+  skip_service_principal_aad_check = true
+}
+
+# Dropped local-user assignment from state; CI cannot delete role assignments with Contributor.
+removed {
+  from = azurerm_role_assignment.terraform_kv_secrets
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "random_password" "postgres_admin" {
@@ -39,7 +49,7 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
   value        = random_password.postgres_admin.result
   key_vault_id = azurerm_key_vault.main.id
 
-  depends_on = [azurerm_role_assignment.terraform_kv_secrets]
+  depends_on = [azurerm_role_assignment.github_actions_kv_secrets]
 }
 
 resource "azurerm_key_vault_secret" "grafana_admin_password" {
@@ -47,5 +57,5 @@ resource "azurerm_key_vault_secret" "grafana_admin_password" {
   value        = random_password.grafana_admin.result
   key_vault_id = azurerm_key_vault.main.id
 
-  depends_on = [azurerm_role_assignment.terraform_kv_secrets]
+  depends_on = [azurerm_role_assignment.github_actions_kv_secrets]
 }

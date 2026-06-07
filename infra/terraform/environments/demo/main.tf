@@ -23,8 +23,8 @@ module "security" {
   resource_group_name    = azurerm_resource_group.main.name
   tags                   = var.tags
   tenant_id              = data.azurerm_client_config.current.tenant_id
-  terraform_principal_id = data.azurerm_client_config.current.object_id
-  key_vault_name         = var.key_vault_name
+  github_actions_principal_id = var.github_actions_principal_id
+  key_vault_name              = var.key_vault_name
 }
 
 module "data" {

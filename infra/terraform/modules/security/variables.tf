@@ -18,8 +18,8 @@ variable "tenant_id" {
   type = string
 }
 
-variable "terraform_principal_id" {
-  description = "Object ID of the identity running Terraform (for Key Vault access during apply)."
+variable "github_actions_principal_id" {
+  description = "Object ID of the GitHub Actions service principal (Key Vault access during CI apply)."
   type        = string
 }
 
