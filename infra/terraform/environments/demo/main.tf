@@ -1,5 +1,11 @@
 data "azurerm_client_config" "current" {}
 
+# Already provisioned in Azure; import avoids CI needing roleAssignments/write on apply.
+import {
+  to = module.security.azurerm_role_assignment.github_actions_kv_secrets
+  id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.KeyVault/vaults/${var.key_vault_name}/providers/Microsoft.Authorization/roleAssignments/ba0e0190-e91d-459e-bfeb-19bdc20ce0e0"
+}
+
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
