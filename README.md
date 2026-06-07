@@ -105,21 +105,19 @@ Open-source stack for log search and service metrics — no license cost when se
 
 Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 
-**Explore logs (Grafana → Explore → Loki)** — start with a broad query, then narrow down.
-The same LogQL works in **local Docker Compose** and **Azure AKS** (`container` labels match):
+**Quick Explore links** (pre-filled queries, last 15 minutes — click after compose is up):
+
+| What you'll see | Link |
+|-----------------|------|
+| Datasource simulator — continuous turbine/grid POSTs every 5–15s | [Open in Grafana → Loki](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22ds%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bcontainer%3D%5C%22aether-datasource%5C%22%7D%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
+| Write-side ingest with `correlationId` — trace a request into the outbox | [Open in Grafana → Loki](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22ws%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bcontainer%3D%5C%22aether-write-side%5C%22%7D%20%7C%20json%20%7C%20correlationId%20!%3D%20%5C%22%5C%22%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
+| HTTP request rate across Spring services | [Open in Grafana → Prometheus](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22pm%22%3A%7B%22datasource%22%3A%22prometheus%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22prometheus%22%2C%22type%22%3A%22prometheus%22%7D%2C%22expr%22%3A%22rate(http_server_requests_seconds_count%7Bjob%3D%5C%22spring-services%5C%22%7D%5B1m%5D)%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
+
+The same LogQL works in **local Docker Compose** and **Azure AKS** (`container` labels match). Start broad if a link looks empty:
 
 ```logql
-# Start here — all application containers (should always show lines)
 {container=~"aether-datasource|aether-write-side|aether-outbox-relay|aether-api-gateway"}
-
-# Datasource simulator (most active — logs every 5–15s)
-{container="aether-datasource"}
-
-# Write-side ingest with correlation id (after rebuild with IngestAccessLogFilter)
-{container="aether-write-side"} | json | correlationId != ""
 ```
-
-Set the time range to **Last 15 minutes** if the view looks empty.
 
 On **Azure**, Promtail runs as a DaemonSet and ships pod stdout to in-cluster Loki; Grafana
 provisions both Loki and Prometheus (same stack as local Docker Compose).
@@ -128,13 +126,6 @@ provisions both Loki and Prometheus (same stack as local Docker Compose).
 has data but Explore looks empty, you are usually filtering too aggressively (e.g. the
 `correlationId` filter before ingest logging existed) or the time range is too narrow.
 Try `{container="aether-datasource"}` first — it logs continuously.
-
-**Explore metrics (Grafana → Explore → Prometheus):**
-
-```promql
-rate(http_server_requests_seconds_count{job="spring-services"}[1m])
-jvm_memory_used_bytes{job="spring-services"}
-```
 
 Prometheus targets UI: `http://localhost:9090/targets` (all four Spring services should be **UP**).
 
