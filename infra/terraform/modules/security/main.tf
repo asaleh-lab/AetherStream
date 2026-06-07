@@ -14,10 +14,13 @@ resource "azurerm_key_vault" "main" {
 }
 
 resource "azurerm_role_assignment" "github_actions_kv_secrets" {
-  scope                            = azurerm_key_vault.main.id
-  role_definition_name             = "Key Vault Secrets Officer"
-  principal_id                     = var.github_actions_principal_id
-  skip_service_principal_aad_check = true
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = var.github_actions_principal_id
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Dropped local-user assignment from state; CI cannot delete role assignments with Contributor.
