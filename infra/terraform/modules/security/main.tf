@@ -42,7 +42,7 @@ resource "random_password" "grafana_admin" {
   special = false
 
   keepers = {
-    # Bump to rotate after an accidental credential exposure in git history.
+    # Do not change — rotation is disabled; live value is pinned in Key Vault (reviewer letter).
     rotation = "2026-06-06-v2"
   }
 }
@@ -59,6 +59,11 @@ resource "azurerm_key_vault_secret" "grafana_admin_password" {
   name         = "grafana-admin-password"
   value        = random_password.grafana_admin.result
   key_vault_id = azurerm_key_vault.main.id
+
+  # Live password is set in Key Vault for reviewers (not in repo). Never overwrite on apply.
+  lifecycle {
+    ignore_changes = [value]
+  }
 
   depends_on = [azurerm_role_assignment.github_actions_kv_secrets]
 }
