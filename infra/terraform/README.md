@@ -40,6 +40,8 @@ flowchart LR
         GRAF["grafana<br/>public LB"]
         AGW_ILB["api-gateway ILB<br/>10.1.0.10"]
         PROM["Prometheus"]
+        LOKI["Loki"]
+        PROMTAIL["Promtail"]
         PODS["Kafka · Flink · write-side<br/>· relay · datasource"]
       end
       PDNS["Private DNS zone<br/>aether-demo.internal"]
@@ -55,6 +57,8 @@ flowchart LR
   U -->|HTTP| GRAF
   BLAZOR -->|cluster DNS :8085| AGW_ILB
   GRAF -->|cluster DNS :9090| PROM
+  GRAF -->|cluster DNS :3100| LOKI
+  PROMTAIL -->|push| LOKI
   PODS --- AGW_ILB
   AKS --> PG
   AKS --> ACR
@@ -64,8 +68,9 @@ flowchart LR
 
 1. User opens Blazor / Grafana on public LoadBalancer IPs (URLs in the **motivation letter**).
 2. Blazor calls `http://api-gateway:8085` in-cluster.
-3. Grafana reads Prometheus at `http://prometheus:9090` in-cluster.
-4. GitHub Actions (OIDC) builds images → ACR, deploys all manifests to AKS.
+3. Grafana reads Prometheus at `http://prometheus:9090` and Loki at `http://loki:3100` in-cluster.
+4. Promtail (DaemonSet) ships pod stdout from the `aether` namespace to Loki.
+5. GitHub Actions (OIDC) builds images → ACR, deploys all manifests to AKS.
 
 ## Layout
 
@@ -81,7 +86,8 @@ infra/terraform/
     observability/        # Diagnostic settings → Log Analytics
 ```
 
-UI manifests live in `infra/k8s/base/blazor-dashboard/` and `infra/k8s/base/grafana/`.
+UI and observability manifests live in `infra/k8s/base/` (`blazor-dashboard`, `grafana`,
+`loki`, `promtail`, `prometheus`).
 
 ## Prerequisites
 

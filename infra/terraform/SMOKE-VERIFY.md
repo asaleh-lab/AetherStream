@@ -31,7 +31,10 @@ Wait for both services to show an `EXTERNAL-IP` before testing (`kubectl get svc
 
 1. Open the Grafana URL from the motivation letter.
 2. Log in with the credentials provided there.
-3. Confirm Prometheus datasource is healthy (Explore → Prometheus metrics).
+3. Confirm **Loki** and **Prometheus** datasources are healthy (Configuration → Data sources).
+4. Explore logs: **Explore → Loki** — try `{container="aether-datasource"}` (Last 15 minutes).
+5. Explore metrics: **Explore → Prometheus** — e.g. `up{job=~"write-side|api-gateway"}`.
+6. Open dashboard **AetherStream → AetherStream Logs** (same queries as local compose).
 
 ## 4. Private backends
 
@@ -63,6 +66,7 @@ Expected: `No changes.`
 | Blazor shows disconnected | `kubectl -n aether logs deployment/blazor-dashboard`; api-gateway pod healthy; in-cluster DNS `api-gateway:8085` |
 | Blazor unhealthy | `kubectl -n aether describe pod -l app=blazor-dashboard`; ACR image pull; `/health` on the motivation-letter URL |
 | Grafana login fails | `kubectl -n aether get secret grafana-secrets`; Key Vault secret `grafana-admin-password` (synced by `app-cd`) |
+| Loki empty in Grafana | `kubectl -n aether get pods -l app=loki`; `kubectl -n aether get daemonset promtail`; try `{container="aether-datasource"}` |
 | No Kafka events | `kubectl -n aether logs job/kafka-init`; `kubectl -n aether get pods` |
 | Flyway errors | `aether-secrets` from Key Vault (not kustomize); `kubectl get secret aether-secrets -o yaml` |
 | Pods Pending (CPU) | Demo overlay resource limits; or set `aks_node_count = 2` in tfvars |

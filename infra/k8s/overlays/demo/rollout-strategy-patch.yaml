@@ -64,6 +64,15 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: loki
+  namespace: aether
+spec:
+  strategy:
+    type: Recreate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: blazor-dashboard
   namespace: aether
 spec:
