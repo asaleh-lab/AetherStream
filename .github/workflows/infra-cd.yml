@@ -12,6 +12,11 @@ on:
       - "infra/terraform/**"
       - ".github/workflows/infra-cd.yml"
 
+# One demo state file — queue runs so PR + merge push never fight for the blob lock.
+concurrency:
+  group: infra-cd-terraform-demo
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
