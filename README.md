@@ -19,6 +19,7 @@ Contributors: [HANDOFF.md](HANDOFF.md) (process, build from source, deployment n
 
 Specification-driven with [spec-kit](https://github.com/github/spec-kit) and AI (Cursor), on an
 abbreviated path — no `plan.md` or `tasks.md`; continuity in [HANDOFF.md](HANDOFF.md#development-process-spec-driven).
+Roughly **28 hours** end to end, including implementation, Azure deployment, and documentation.
 Design artifacts: [spec.md](specs/001-aetherstream/spec.md),
 [architecture.md](specs/001-aetherstream/architecture.md).
 
