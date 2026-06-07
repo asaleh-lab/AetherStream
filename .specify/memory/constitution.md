@@ -40,9 +40,11 @@ headers. Every deployable exposes health and metrics endpoints. A change is not 
 until it is observable.
 
 ### VI. Spec-Driven Development
-Work follows the spec-kit flow: constitution -> specify -> plan -> tasks -> implement.
-Specs and architecture decisions are committed artifacts, authored before the code that
-realizes them. Cross-chat continuity is maintained in `HANDOFF.md`.
+Work follows spec-kit principles: constitution -> specify -> plan -> tasks -> implement.
+This project may abbreviate that pipeline (e.g. architecture in place of `plan.md`,
+`HANDOFF.md` in place of a generated `tasks.md`) when speed requires it — but specs stay
+committed before or alongside implementation. AI-assisted development (Cursor) runs under
+those constraints. Reviewers start with `README.md`; process detail in `HANDOFF.md`.
 
 ### VII. Test the Risk, Not the Framework
 Reliability-critical paths (outbox relay correctness, CQRS handlers, Kafka
@@ -55,17 +57,16 @@ Testcontainers for Kafka and PostgreSQL. Trivial glue code is not over-tested.
 - Messaging: Apache Kafka in KRaft mode. Persistence: PostgreSQL 16 with Flyway migrations.
 - Build: Maven multi-module reactor; a committed Maven Wrapper makes the repo self-contained.
 - UI: .NET 10 Blazor Server with Radzen components, consuming REST + WebSocket from the gateway.
-- Infrastructure is reproducible via a single `docker-compose` for Kafka and PostgreSQL.
-- The Java mapping table in the project brief (ASP.NET -> JVM equivalents) is documentation
-  intent; the implementation is JVM-native, not a literal .NET port.
+- Local infrastructure is reproducible via a single `docker compose -f infra/docker-compose.yml`
+  command (full stack: backend, Blazor UI, Grafana/Loki/Prometheus).
+- Azure deployment uses AKS + Terraform; see `infra/terraform/README.md`.
 
 ## Development Workflow
 
-- Branching: phase-based feature branches merged into `main` via pull request.
+- Branching: feature branches merged into `main` via pull request.
 - Commits: Conventional Commits (`feat`, `fix`, `build`, `chore`, `docs`, `test`, `ci`),
   small and single-concern, each in a compiling/validating state.
-- Each phase ends by updating `HANDOFF.md`, running the phase's verification, and opening a PR.
-- The system is built in phases; no phase claims completion with a broken build.
+- Substantial changes update `HANDOFF.md` and keep docs aligned with `README.md`.
 
 ## Governance
 
@@ -73,4 +74,4 @@ This constitution supersedes ad-hoc preferences. Any deviation (for example, a j
 synchronous call or a skipped test) must be documented in the relevant spec or PR with its
 rationale. Amendments are made by editing this file with a version bump and a dated note.
 
-**Version**: 1.0.1 | **Ratified**: 2026-06-05 | **Last Amended**: 2026-06-05
+**Version**: 1.0.2 | **Ratified**: 2026-06-05 | **Last Amended**: 2026-06-07
