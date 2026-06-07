@@ -1,46 +1,53 @@
 # AetherStream
 
-A portfolio project: a real-time wind-energy monitoring platform built to demonstrate
-production-shaped design of an event-driven streaming system. The backend is JVM-native
-(Java 21, Spring Boot, Apache Flink, Kafka, PostgreSQL); the UI is .NET 10 Blazor with
-Radzen. The brief's ASP.NET-to-JVM mapping table is documentation intent — this is not a
-literal .NET port, but a system that shows I can design and implement the same patterns
-in the Java ecosystem quickly.
+A real-time wind-energy monitoring platform demonstrating production-shaped event-driven
+streaming. JVM backend (Java 21, Spring Boot, Apache Flink, Kafka, PostgreSQL); .NET 10
+Blazor + Radzen UI over REST and WebSocket.
 
-Development followed a spec-driven workflow (Cursor + [spec-kit](https://github.com/github/spec-kit)):
-constitution, functional spec, and architecture were written before scaffolding code.
-See [HANDOFF.md](HANDOFF.md) for cross-session state and [specs/001-aetherstream/](specs/001-aetherstream/) for the design artifacts.
+## How it was built (spec-kit + AI)
+
+This project was implemented in a **short timeframe using AI-assisted development** (Cursor).
+To keep scope coherent and reviewable under that constraint, development followed a
+**spec-driven workflow** with [spec-kit](https://github.com/github/spec-kit):
+
+1. **Constitution** — non-negotiable principles ([.specify/memory/constitution.md](.specify/memory/constitution.md))
+2. **Functional spec** — user stories and acceptance criteria ([specs/001-aetherstream/spec.md](specs/001-aetherstream/spec.md))
+3. **Architecture** — components, data flow, deployment ([specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md))
+4. **Implementation** — code generated and refined against those artifacts
+
+The specs are the source of truth: they constrain AI output, make design intent auditable,
+and let a reviewer evaluate *what* was built separately from *how fast* it was built.
+Full artifact tree: [specs/001-aetherstream/](specs/001-aetherstream/).
 
 ## What it demonstrates
 
-- **Kafka event-driven architecture** — two ingestion streams (turbine telemetry, grid load) converge on a topic backbone; downstream processing is decoupled from producers.
+- **Kafka event-driven architecture** — turbine telemetry and grid load converge on a topic backbone; downstream processing is decoupled from producers.
 - **CQRS** — write model (commands, domain state, outbox) separated from read model (query-optimized projections served by the API gateway).
-- **Outbox pattern** — no dual-write: domain changes and `outbox_events` rows commit in one transaction; a relay publishes to Kafka with at-least-once delivery and idempotent consumers.
+- **Outbox pattern** — domain changes and `outbox_events` rows commit in one transaction; a relay publishes to Kafka with at-least-once delivery and idempotent consumers.
 - **Stream processing (Flink-style)** — aggregation joins, anomaly detection, and a decision engine produce energy state, alerts, and recommendations.
 - **Real-time UI** — Blazor Server + Radzen dashboard consuming REST and WebSocket from the gateway.
+- **Observability** — Grafana, Loki, Promtail, and Prometheus for logs and metrics (local Docker Compose and Azure AKS).
 
-## Two-part layout
+## Architecture
 
-The repo deliberately separates **producers** from the **backbone** so the demo story is easy to follow:
+Producers are separated from the backbone so the data flow is easy to follow:
 
 | Part | Modules | Responsibility |
 |------|---------|----------------|
-| **Data source** | `datasource` | One thin Spring Boot app simulating the outside world. No DB, domain, or CQRS. Two schedulers at real-world cadences POST JSON to write-side: turbine telemetry (5s), grid load (15s). |
-| **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | `application.yml`, JSON logging, CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
+| **Data source** | `datasource` | Thin Spring Boot app simulating external feeds. Two schedulers POST JSON to write-side: turbine telemetry (5s), grid load (15s). |
+| **Backbone** | `core/*`, `write-side`, `outbox-relay`, Flink jobs, `api-gateway` | CQRS, domain models, PostgreSQL, outbox, Kafka relay, stream processing, query APIs. |
 
 ```text
 datasource  --HTTP POST-->  write-side  --outbox-->  relay  -->  Kafka  -->  Flink  -->  api-gateway  -->  UI
 ```
 
-## Repository layout
-
 ```text
 core/           domain, application (CQRS bus), infrastructure (JPA, Kafka, Flyway)
 services/       write-side, datasource, outbox-relay, api-gateway, stream-processor, decision-engine
 ui/             blazor-dashboard (.NET 10 + Radzen)
-infra/          docker-compose, Dockerfiles, observability configs; Terraform + K8s for Azure
+infra/          docker-compose, Dockerfiles, observability; Terraform + K8s for Azure
 scripts/        smoke-ingest.ps1 and other dev helpers
-specs/          spec-kit artifacts
+specs/          functional spec, architecture, tasks
 ```
 
 ## Prerequisites
@@ -49,30 +56,25 @@ specs/          spec-kit artifacts
 - **Java development:** JDK 21 (Maven via `./mvnw`)
 - **UI development:** .NET 10 SDK
 
-## Build
+## Local demo
 
-```powershell
-# Java backend (all modules)
-.\mvnw.cmd -DskipTests package
-
-# Blazor UI
-dotnet build ui/blazor-dashboard
-```
-
-## Local stack (plug-and-play)
-
-One compose file starts the full demo — backend pipeline, Blazor UI, and observability:
+One command starts the full stack — backend, Blazor UI, and observability:
 
 ```powershell
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
-(auto-forwarding turbine and grid readings), **outbox-relay**, **stream-processor**
-(Flink aggregation + anomaly detection), **decision-engine** (optimization recommendations),
-**api-gateway** (query APIs + WebSocket), **blazor-dashboard** (port 8086), and
-**Grafana + Loki + Prometheus + Promtail** (ports 3000, 3100, 9090). Flyway runs on
-service startup.
+First run is slow (Maven and .NET image builds); later runs use the layer cache.
+
+| Endpoint | URL |
+|----------|-----|
+| Blazor dashboard | http://localhost:8086 |
+| API gateway (REST) | http://localhost:8085/api/energy/latest |
+| API gateway (WebSocket) | ws://localhost:8085/ws/realtime |
+| Write-side ingest | http://localhost:8080/api/ingest/turbine |
+| Kafka UI | http://localhost:8089 |
+| Grafana | http://localhost:3000 (`admin` / `admin`) |
+| Prometheus targets | http://localhost:9090/targets |
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -82,30 +84,21 @@ service startup.
 | `aether-write-side` | CQRS ingest + outbox + DB | 8080 |
 | `aether-datasource` | External feed simulator | 8081 |
 | `aether-outbox-relay` | Outbox → Kafka relay | 8084 |
-| `aether-stream-processor` | Flink job (no HTTP port) | — |
-| `aether-decision-engine` | Flink job: optimization recommendations (no HTTP port) | — |
+| `aether-stream-processor` | Flink aggregation + anomaly detection | — |
+| `aether-decision-engine` | Flink optimization recommendations | — |
 | `aether-api-gateway` | Query APIs + WebSocket | 8085 |
 | `aether-blazor-dashboard` | Blazor + Radzen UI | 8086 |
 | `aether-grafana` | Logs + metrics UI | 3000 |
 | `aether-prometheus` | Metrics scraper | 9090 |
 | `aether-loki` | Log store | 3100 |
 
+Check health: `docker compose -f infra/docker-compose.yml ps -a`
+
 ### Observability
 
-Open-source stack for log search and service metrics — no license cost when self-hosted:
+Pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 
-| Tool | Role |
-|------|------|
-| **Grafana** | Web UI for dashboards and log search |
-| **Loki** | Collects and stores container stdout (JSON logs from Java services) |
-| **Promtail** | Ships Docker container logs to Loki |
-| **Prometheus** | Scrapes Spring Boot `/actuator/prometheus` every 15s |
-
-**Grafana (local):** `http://localhost:3000` — login `admin` / `admin` (local Docker Compose only). Live Azure demo URLs and credentials are in the **motivation letter**.
-
-Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
-
-**Quick Explore links** (pre-filled queries, last 15 minutes — click after compose is up):
+**Quick Explore links** (pre-filled queries, last 15 minutes):
 
 | What you'll see | Link |
 |-----------------|------|
@@ -113,29 +106,15 @@ Open the pre-built dashboard: **Dashboards → AetherStream → AetherStream Log
 | Write-side ingest with `correlationId` — trace a request into the outbox | [Open in Grafana → Loki](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22ws%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bcontainer%3D%5C%22aether-write-side%5C%22%7D%20%7C%20json%20%7C%20correlationId%20!%3D%20%5C%22%5C%22%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 | HTTP request rate across Spring services | [Open in Grafana → Prometheus](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22pm%22%3A%7B%22datasource%22%3A%22prometheus%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22prometheus%22%2C%22type%22%3A%22prometheus%22%7D%2C%22expr%22%3A%22rate(http_server_requests_seconds_count%7Bjob%3D%5C%22spring-services%5C%22%7D%5B1m%5D)%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 
-The same LogQL works in **local Docker Compose** and **Azure AKS** (`container` labels match). Start broad if a link looks empty:
+The same LogQL works locally and on Azure AKS (`container` labels match).
 
-```logql
-{container=~"aether-datasource|aether-write-side|aether-outbox-relay|aether-api-gateway"}
-```
-
-On **Azure**, Promtail runs as a DaemonSet and ships pod stdout to in-cluster Loki; Grafana
-provisions both Loki and Prometheus (same stack as local Docker Compose).
-
-**Troubleshooting empty Loki results:** metrics and logs are separate systems. If Prometheus
-has data but Explore looks empty, you are usually filtering too aggressively (e.g. the
-`correlationId` filter before ingest logging existed) or the time range is too narrow.
-Try `{container="aether-datasource"}` first — it logs continuously.
-
-Prometheus targets UI: `http://localhost:9090/targets` (all four Spring services should be **UP**).
-
-Smoke-test write-side ingest endpoints:
+### Smoke test
 
 ```powershell
 .\scripts\smoke-ingest.ps1 -SkipCommit
 ```
 
-Or POST manually (example — turbine telemetry):
+Manual ingest example (expect HTTP 202 with `eventId`, `correlationId`, `status: PENDING`):
 
 ```powershell
 Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/ingest/turbine `
@@ -143,111 +122,35 @@ Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/ingest/turbine `
   -Body '{"turbineId":"T-001","rpm":12.5,"powerOutput":1500,"vibrationLevel":0.4}'
 ```
 
-Expect HTTP 202 with `eventId`, `correlationId`, and `status: PENDING` (outbox row written).
-
-Host bootstrap for Kafka is `localhost:9094`; containers use `kafka:9092`.
-
-**Query APIs:** `GET http://localhost:8085/api/energy/latest`, `/api/alerts`, `/api/recommendations`, `/api/turbines/{id}`  
-**WebSocket:** `ws://localhost:8085/ws/realtime`  
-**Blazor UI (compose):** `http://localhost:8086`  
-**Blazor UI (local dev):** `dotnet run --project ui/blazor-dashboard` (default port 5000)
-
-First `docker compose up --build` is slow (Maven and .NET builds inside images); later runs
-use the layer cache. On Windows PowerShell, chain commands with `;` not `&&`.
-
-Check container health:
+## Build (from source)
 
 ```powershell
-docker compose -f infra/docker-compose.yml ps -a
+.\mvnw.cmd -DskipTests package          # Java backend
+dotnet build ui/blazor-dashboard        # Blazor UI
+dotnet run --project ui/blazor-dashboard  # UI dev server (default port 5000)
 ```
 
-## Azure deployment (Terraform)
+## Azure deployment
 
-The same demo stack can run on Azure with **lowest viable SKUs** (~**$85/mo** with UI on AKS;
-see [infra/terraform/COST-ESTIMATE.md](infra/terraform/COST-ESTIMATE.md)). Full runbook:
-[infra/terraform/README.md](infra/terraform/README.md).
+The same stack runs on Azure AKS. Runbook: [infra/terraform/README.md](infra/terraform/README.md).
 
-### Architecture
+**Live demo URLs and credentials are in the motivation letter** — not published in this repo.
 
-```mermaid
-flowchart TB
-  User([User / reviewer])
+Architecture diagram and deploy steps: [infra/terraform/README.md — Architecture](infra/terraform/README.md#architecture).
 
-  subgraph Azure["Azure subscription — AetherStream"]
-    subgraph Public["Public edge (cost-optimized — no AGW/WAF)"]
-      BlazorLB["blazor-dashboard LB"]
-      GrafanaLB["grafana LB"]
-    end
+Blazor and Grafana are deployed **inside the AKS cluster** (public LoadBalancer Services), not on
+App Service or separate VMs — a cost-driven placement choice. Backend services (api-gateway, Kafka,
+Flink, write-side) use internal LoadBalancers. Grafana on AKS runs the same Loki + Prometheus
+stack as local Docker Compose.
 
-    subgraph VNet["VNet aether-demo-vnet"]
-      subgraph AKS["AKS — 1× node"]
-        Blazor["Blazor"]
-        Graf["Grafana"]
-        ILB["Internal LoadBalancers"]
-        Loki["Loki"]
-        Promtail["Promtail"]
-        GW["api-gateway"]
-        Back["write-side · relay · Kafka · Flink"]
-        Blazor --> GW
-        Graf --> ILB
-        Graf --> Loki
-        Promtail --> Loki
-        ILB --> GW
-        GW --- Back
-      end
-    end
+### Omitted for price consideration
 
-    subgraph Platform["Shared platform"]
-      PG[("PostgreSQL<br/>B_Standard_B1ms")]
-      ACR["ACR Basic"]
-      KV["Key Vault"]
-      LAW["Log Analytics"]
-    end
-
-    GH["GitHub Actions<br/>OIDC → deploy"]
-  end
-
-  User -->|HTTP| BlazorLB
-  User -->|HTTP| GrafanaLB
-  BlazorLB --> Blazor
-  GrafanaLB --> Graf
-  AKS --> PG
-  AKS --> ACR
-  GH --> ACR
-  GH --> AKS
-```
-
-After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Grafana on AKS includes **Loki + Prometheus** (log and metrics parity with local Docker Compose). Application Gateway and WAF are omitted for cost.
-
-### Deliberately omitted for cost
-
-This demo Terraform **does not** deploy production edge and isolation controls from early
-hub-spoke designs. They were removed to stay within starter credits (~**$85/mo** with UI on AKS)
-and to keep teardown simple:
-
-| Omitted | Why |
-|---------|-----|
-| **Application Gateway** | ~$200/mo fixed cost — largest line item; AKS LoadBalancer HTTP is the public front door |
-| **WAF (Web Application Firewall)** | Requires Application Gateway WAF_v2; no OWASP/rule-set filtering in demo |
-| **Private endpoints** (PostgreSQL, ACR, Key Vault) | ~$7/mo each; public endpoints + managed identity / RBAC instead |
-| **Hub-spoke VNet peering** | Single VNet is sufficient at demo scale |
-| **App Service** | B1 Web quota unavailable in North Europe on this subscription |
-| **Premium ACR** | Only required for private-link designs |
-
-**Privacy trade-off:** Blazor and Grafana are on **public AKS LoadBalancer IPs**. Backend
-streaming (api-gateway, Kafka, Flink, write-side) stays on **internal AKS LoadBalancers** — not
-Internet-routable. For production, reintroduce Application Gateway + WAF, private endpoints, and
-network isolation.
-
-**Budget alert:** subscription budget `aetherstream-100` emails at $80 and $100 actual spend.
-
-## Status
-
-Feature-complete for the portfolio demo. All six delivery phases are done: write-side + outbox,
-relay, Flink stream processing (aggregation, anomaly detection, decision-engine recommendations),
-API gateway, Blazor dashboard, and observability (Grafana + Loki + Prometheus + Promtail) —
-locally via Docker Compose, on Azure via AKS manifests in `infra/k8s/base/`.
-Track session state in [HANDOFF.md](HANDOFF.md).
+- Application Gateway and WAF
+- Private endpoints (PostgreSQL, ACR, Key Vault)
+- Hub-spoke VNet peering
+- Premium ACR / private-link registry
+- Multi-node AKS and zone redundancy
+- App Service or standalone VMs for UI and Grafana — **Blazor and Grafana run in the AKS cluster** instead
 
 ## License
 
