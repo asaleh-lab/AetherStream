@@ -1,13 +1,5 @@
-# Local stack for AetherStream.
+# Local stack for AetherStream (full demo: backend + Blazor UI + observability).
 # Usage: docker compose -f infra/docker-compose.yml up -d --build
-#
-# Profiles:
-#   full           — Blazor dashboard (port 8086)
-#   observability  — Grafana + Loki + Prometheus + Promtail (ports 3000, 3100, 9090)
-#
-# Examples:
-#   docker compose -f infra/docker-compose.yml up -d --build
-#   docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
 #
 # Two-part layout:
 #   - write-side: CQRS ingest APIs, PostgreSQL, outbox (the main backbone demo)
@@ -253,10 +245,9 @@ services:
     labels:
       aetherstream.role: api-gateway
 
-  # --- Blazor dashboard (optional full stack profile) ---
+  # --- Blazor dashboard ---
 
   blazor-dashboard:
-    profiles: ["full"]
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.blazor-dashboard
@@ -283,10 +274,9 @@ services:
     labels:
       aetherstream.role: blazor-dashboard
 
-  # --- Observability (optional profile: logs + metrics in Grafana) ---
+  # --- Observability (logs + metrics in Grafana) ---
 
   loki:
-    profiles: ["observability"]
     image: grafana/loki:3.0.0
     container_name: aether-loki
     ports:
@@ -299,7 +289,6 @@ services:
       aetherstream.role: loki
 
   promtail:
-    profiles: ["observability"]
     image: grafana/promtail:3.0.0
     container_name: aether-promtail
     depends_on:
@@ -312,7 +301,6 @@ services:
       aetherstream.role: promtail
 
   prometheus:
-    profiles: ["observability"]
     image: prom/prometheus:v2.53.0
     container_name: aether-prometheus
     depends_on:
@@ -332,7 +320,6 @@ services:
       aetherstream.role: prometheus
 
   grafana:
-    profiles: ["observability"]
     image: grafana/grafana:11.0.0
     container_name: aether-grafana
     depends_on:

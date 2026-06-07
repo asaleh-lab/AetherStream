@@ -61,35 +61,18 @@ dotnet build ui/blazor-dashboard
 
 ## Local stack (plug-and-play)
 
-**Backend pipeline** (default compose):
+One compose file starts the full demo — backend pipeline, Blazor UI, and observability:
 
 ```powershell
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-**Full demo including Blazor UI**:
-
-```powershell
-docker compose -f infra/docker-compose.yml --profile full up -d --build
-```
-
-**Observability stack** (Grafana + Loki + Prometheus — free, open source):
-
-```powershell
-docker compose -f infra/docker-compose.yml --profile observability up -d --build
-```
-
-**Full demo with UI and observability**:
-
-```powershell
-docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build
-```
-
 Brings up Postgres, Kafka, Kafka UI, **write-side** (CQRS + outbox), **datasource**
 (auto-forwarding turbine and grid readings), **outbox-relay**, **stream-processor**
 (Flink aggregation + anomaly detection), **decision-engine** (optimization recommendations),
-and **api-gateway** (query APIs + WebSocket). With `--profile full`, also starts
-**blazor-dashboard** on port 8086. Flyway runs on service startup.
+**api-gateway** (query APIs + WebSocket), **blazor-dashboard** (port 8086), and
+**Grafana + Loki + Prometheus + Promtail** (ports 3000, 3100, 9090). Flyway runs on
+service startup.
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -102,12 +85,12 @@ and **api-gateway** (query APIs + WebSocket). With `--profile full`, also starts
 | `aether-stream-processor` | Flink job (no HTTP port) | — |
 | `aether-decision-engine` | Flink job: optimization recommendations (no HTTP port) | — |
 | `aether-api-gateway` | Query APIs + WebSocket | 8085 |
-| `aether-blazor-dashboard` | Blazor + Radzen UI (`--profile full`) | 8086 |
-| `aether-grafana` | Logs + metrics UI (`--profile observability`) | 3000 |
-| `aether-prometheus` | Metrics scraper (`--profile observability`) | 9090 |
-| `aether-loki` | Log store (`--profile observability`) | 3100 |
+| `aether-blazor-dashboard` | Blazor + Radzen UI | 8086 |
+| `aether-grafana` | Logs + metrics UI | 3000 |
+| `aether-prometheus` | Metrics scraper | 9090 |
+| `aether-loki` | Log store | 3100 |
 
-### Observability (optional `--profile observability`)
+### Observability
 
 Open-source stack for log search and service metrics — no license cost when self-hosted:
 
@@ -139,7 +122,7 @@ The same LogQL works in **local Docker Compose** and **Azure AKS** (`container` 
 Set the time range to **Last 15 minutes** if the view looks empty.
 
 On **Azure**, Promtail runs as a DaemonSet and ships pod stdout to in-cluster Loki; Grafana
-provisions both Loki and Prometheus (same as `--profile observability` locally).
+provisions both Loki and Prometheus (same stack as local Docker Compose).
 
 **Troubleshooting empty Loki results:** metrics and logs are separate systems. If Prometheus
 has data but Explore looks empty, you are usually filtering too aggressively (e.g. the
@@ -184,7 +167,7 @@ use the layer cache. On Windows PowerShell, chain commands with `;` not `&&`.
 Check container health:
 
 ```powershell
-docker compose -f infra/docker-compose.yml --profile full ps -a
+docker compose -f infra/docker-compose.yml ps -a
 ```
 
 ## Azure deployment (Terraform)
@@ -243,7 +226,7 @@ flowchart TB
   GH --> AKS
 ```
 
-After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Grafana on AKS includes **Loki + Prometheus** (log and metrics parity with local `--profile observability`). Application Gateway and WAF are omitted for cost.
+After `kubectl apply -k infra/k8s/overlays/demo`, the Blazor and Grafana endpoints are reachable on public AKS LoadBalancer IPs. **Live demo URLs and credentials are in the motivation letter** — they are not published in this repo. Grafana on AKS includes **Loki + Prometheus** (log and metrics parity with local Docker Compose). Application Gateway and WAF are omitted for cost.
 
 ### Deliberately omitted for cost
 
@@ -272,7 +255,7 @@ network isolation.
 Feature-complete for the portfolio demo. All six delivery phases are done: write-side + outbox,
 relay, Flink stream processing (aggregation, anomaly detection, decision-engine recommendations),
 API gateway, Blazor dashboard, and observability (Grafana + Loki + Prometheus + Promtail) —
-locally via compose `--profile observability`, on Azure via AKS manifests in `infra/k8s/base/`.
+locally via Docker Compose, on Azure via AKS manifests in `infra/k8s/base/`.
 Track session state in [HANDOFF.md](HANDOFF.md).
 
 ## License

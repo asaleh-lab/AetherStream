@@ -3,7 +3,7 @@
 Cross-session state for the AetherStream build. Update this at the end of every working
 session. It is the first thing to read when resuming in a new chat.
 
-Last updated: 2026-06-07 (AKS Loki + Promtail — Grafana log parity with local compose)
+Last updated: 2026-06-07 (simplify-and-demo-alignment — single compose, no profiles)
 
 ## 1. What this project is
 
@@ -25,8 +25,8 @@ processing on the JVM, with a .NET Blazor + Radzen real-time UI. Authoritative s
 - Git: **phase-based feature branches -> PR -> main**, Conventional Commits, small/single-concern.
 - GitHub: **https://github.com/asaleh-lab/AetherStream** (public).
 - **Azure UI:** **AKS public LoadBalancers** for Blazor + Grafana (no App Service — B1 quota blocked).
-- **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` + optional
-  `--profile full` (Blazor) and `--profile observability` (Grafana).
+- **Local demo**: `docker compose -f infra/docker-compose.yml up -d --build` (full stack:
+  backend + Blazor + Grafana/Loki/Prometheus).
 
 ## 3. Roadmap (6 phases)
 
@@ -34,12 +34,12 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 
 ## 4. Current status
 
-**Branch:** `feat/azure-demo-infrastructure`
+**Branch:** `simplify-and-demo-alignment`
 
 ### Azure demo (2026-06-06)
 
 - [x] **UI on AKS** — Blazor + Grafana as Deployments with public LoadBalancer Services
-- [x] **Observability on AKS** — Loki + Promtail + Prometheus in-cluster; Grafana provisions Loki + Prometheus (parity with local `--profile observability`)
+- [x] **Observability on AKS** — Loki + Promtail + Prometheus in-cluster; Grafana provisions Loki + Prometheus (parity with local Docker Compose)
 - [x] App Service path removed (`compute-appservice` module deleted; B1 quota unavailable in northeurope)
 - [x] `app-cd.yml` — single AKS deploy job (backbone + UI)
 - [x] AKS backbone smoke green
@@ -77,4 +77,4 @@ All six phases **DONE**. Azure demo infra on `feat/azure-demo-infrastructure`.
 - [ ] Deploy UI manifests + smoke verify (URLs in motivation letter)
 - [ ] Merge PR #11 (update description for AKS UI)
 
-Local compose: `docker compose -f infra/docker-compose.yml --profile full --profile observability up -d --build`
+Local compose: `docker compose -f infra/docker-compose.yml up -d --build`

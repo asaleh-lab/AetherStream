@@ -30,7 +30,7 @@ Write-Host ">> Free ports 8080-8081 (stop host listeners if any)"
         ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 }
 
-Write-Host ">> Docker compose up (infra + write-side + datasource)"
+Write-Host ">> Docker compose up (full stack)"
 docker compose -f infra/docker-compose.yml up -d --build | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
 
