@@ -1,0 +1,53 @@
+# Idempotent topic healing after Kafka OOM/restart (ephemeral broker storage).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-topics-ensure
+  namespace: aether
+  labels:
+    app: kafka-topics-ensure
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: kafka-topics-ensure
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ensure-topics
+              image: apache/kafka:3.8.0
+              command: ["/bin/bash", "/scripts/create-topics.sh"]
+              env:
+                - name: BOOTSTRAP
+                  value: kafka:9092
+                - name: PARTITIONS
+                  value: "1"
+                - name: REPLICAS
+                  value: "1"
+                - name: WAIT_SECONDS
+                  value: "90"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: kafka-init-scripts
+                defaultMode: 0755

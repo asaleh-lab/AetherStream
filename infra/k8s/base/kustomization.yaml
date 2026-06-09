@@ -11,6 +11,7 @@ resources:
   - kafka/service.yaml
   - kafka/statefulset.yaml
   - kafka-init-job.yaml
+  - kafka-topics-cronjob.yaml
   - write-side/deployment.yaml
   - write-side/service.yaml
   - datasource/deployment.yaml

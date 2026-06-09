@@ -46,6 +46,9 @@ spec:
               value: "0"
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
               value: "false"
+            # Cap JVM heap so the broker stays below the container memory limit.
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx640m -Xms384m"
           readinessProbe:
             exec:
               command:
@@ -60,4 +63,4 @@ spec:
               memory: 512Mi
             limits:
               cpu: "1"
-              memory: 1Gi
+              memory: 1280Mi

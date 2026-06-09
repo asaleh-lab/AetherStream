@@ -10,6 +10,18 @@ data:
     BOOTSTRAP="${BOOTSTRAP:-kafka:9092}"
     PARTITIONS="${PARTITIONS:-1}"
     REPLICAS="${REPLICAS:-1}"
+    WAIT_SECONDS="${WAIT_SECONDS:-120}"
+
+    echo "Waiting up to ${WAIT_SECONDS}s for Kafka broker at ${BOOTSTRAP}..."
+    deadline=$((SECONDS + WAIT_SECONDS))
+    until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server "${BOOTSTRAP}" >/dev/null 2>&1; do
+      if (( SECONDS >= deadline )); then
+        echo "Timed out waiting for Kafka broker at ${BOOTSTRAP}" >&2
+        exit 1
+      fi
+      sleep 2
+    done
+
     TOPICS=(
       turbine-events
       grid-events
