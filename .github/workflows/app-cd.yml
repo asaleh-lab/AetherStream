@@ -1,15 +1,17 @@
 name: App CD
 
+# Suspended — manual runs only. Re-enable push trigger when CD should run again.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "services/**"
-      - "core/**"
-      - "ui/**"
-      - "infra/docker/**"
-      - "infra/k8s/**"
-      - ".github/workflows/app-cd.yml"
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "services/**"
+  #     - "core/**"
+  #     - "ui/**"
+  #     - "infra/docker/**"
+  #     - "infra/k8s/**"
+  #     - ".github/workflows/app-cd.yml"
 
 permissions:
   id-token: write

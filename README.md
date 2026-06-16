@@ -1,10 +1,10 @@
 # AetherStream
 
-A real-time wind-energy monitoring platform demonstrating production-shaped event-driven
-streaming: Kafka, CQRS, Outbox pattern, Flink-style processing, Blazor UI, and full
-observability. **This README is for reviewers** — Docker is the only prerequisite.
+A real-time wind-energy monitoring platform built around event-driven streaming: Kafka,
+CQRS, the outbox pattern, Flink stream processing, a Blazor dashboard, and full observability.
+Docker is the only prerequisite to run it locally.
 
-Contributors: [HANDOFF.md](HANDOFF.md) (process, build from source, deployment notes).
+See [HANDOFF.md](HANDOFF.md) for build-from-source, deployment, and contributor notes.
 
 ## What it demonstrates
 
@@ -15,12 +15,7 @@ Contributors: [HANDOFF.md](HANDOFF.md) (process, build from source, deployment n
 - **Real-time UI** — Blazor + Radzen over REST and WebSocket
 - **Observability** — Grafana, Loki, Promtail, Prometheus (local Compose and Azure AKS)
 
-## How it was built
-
-Specification-driven with [spec-kit](https://github.com/github/spec-kit) and AI (Cursor), on an
-abbreviated path — no `plan.md` or `tasks.md`; continuity in [HANDOFF.md](HANDOFF.md#development-process-spec-driven).
-Roughly **28 hours** end to end, including implementation, Azure deployment, and documentation.
-Design artifacts: [spec.md](specs/001-aetherstream/spec.md),
+Design docs: [spec.md](specs/001-aetherstream/spec.md),
 [architecture.md](specs/001-aetherstream/architecture.md).
 
 ## Architecture
@@ -111,7 +106,7 @@ PostgreSQL is a container locally; on Azure it is **Azure Database for PostgreSQ
 
 ```mermaid
 flowchart TB
-  U([Reviewer])
+  U([User])
 
   subgraph Local["Local — Docker Compose"]
     LUI[blazor-dashboard :8086]
@@ -158,10 +153,10 @@ flowchart TB
   end
 
   U -->|docker compose up| Local
-  U -->|motivation letter URLs| Azure
+  U -->|terraform apply| Azure
 ```
 
-Full Azure diagram and Terraform runbook: [infra/terraform/README.md](infra/terraform/README.md#architecture).
+Azure deployment runbook: [infra/terraform/README.md](infra/terraform/README.md#architecture).
 
 ## Try it locally
 
@@ -180,6 +175,7 @@ First run builds images (several minutes); later runs use the cache. Health chec
 |------|-----|
 | **Blazor dashboard** (start here) | http://localhost:8086 |
 | Grafana (logs + metrics) | http://localhost:3000 (`admin` / `admin`) |
+| Flink Web UI | http://localhost:8088 |
 | Kafka UI | http://localhost:8089 |
 | API — latest energy state | http://localhost:8085/api/energy/latest |
 | API — alerts | http://localhost:8085/api/alerts |
@@ -200,38 +196,24 @@ Pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 | Write-side ingest + `correlationId` | [Grafana → Loki](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22ws%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bcontainer%3D%5C%22aether-write-side%5C%22%7D%20%7C%20json%20%7C%20correlationId%20!%3D%20%5C%22%5C%22%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 | HTTP request rate (Spring services) | [Grafana → Prometheus](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22pm%22%3A%7B%22datasource%22%3A%22prometheus%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22prometheus%22%2C%22type%22%3A%22prometheus%22%7D%2C%22expr%22%3A%22rate(http_server_requests_seconds_count%7Bjob%3D%5C%22spring-services%5C%22%7D%5B1m%5D)%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 
-Same LogQL/PromQL works on Azure AKS (`container` labels match) — swap `localhost:3000`
-for the Grafana IP address from the motivation letter and sign in with the Grafana credentials
-listed there.
+The same LogQL/PromQL queries work on Azure AKS when Grafana is deployed there (`container`
+labels match the local stack).
 
-## Hosted demo (Azure)
+## Deploy to Azure
 
-The same stack runs on AKS. **Live Blazor and Grafana URLs and credentials are in the
-motivation letter** — not published here.
+The same application stack can be deployed to AKS with Terraform. See
+[infra/terraform/README.md](infra/terraform/README.md) for prerequisites, apply steps, and
+architecture notes. Post-deploy checks: [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md).
 
-Verification checklist: [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md).
+## Documentation
 
-Blazor and Grafana run **inside the AKS cluster** (public LoadBalancers). Backend streaming
-uses internal LoadBalancers.
-
-### Omitted for price consideration
-
-- Application Gateway and WAF
-- Private endpoints (PostgreSQL, ACR, Key Vault)
-- Hub-spoke VNet peering
-- Premium ACR / private-link registry
-- Multi-node AKS and zone redundancy
-- App Service or standalone VMs for UI/Grafana — **Blazor and Grafana run in the AKS cluster** instead
-
-## Further reading
-
-| Document | Audience |
-|----------|----------|
-| [HANDOFF.md](HANDOFF.md) | Contributors — process, build from source, ops notes |
+| Document | Description |
+|----------|-------------|
+| [HANDOFF.md](HANDOFF.md) | Build from source, ops notes |
 | [specs/001-aetherstream/spec.md](specs/001-aetherstream/spec.md) | Functional requirements |
-| [specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md) | Full technical design |
-| [infra/terraform/README.md](infra/terraform/README.md) | Azure deploy runbook |
+| [specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md) | Technical design |
+| [infra/terraform/README.md](infra/terraform/README.md) | Azure deployment |
 
 ## License
 
-Portfolio / demonstration use. No production warranty implied.
+Use and modify at your own discretion. No warranty implied.
