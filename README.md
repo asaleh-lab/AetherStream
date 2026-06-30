@@ -1,19 +1,31 @@
 # AetherStream
 
-A real-time wind-energy monitoring platform built around event-driven streaming: Kafka,
-CQRS, the outbox pattern, Flink stream processing, a Blazor dashboard, and full observability.
-Docker is the only prerequisite to run it locally.
+An end-to-end demo of real-time event processing, using wind-energy monitoring as the
+scenario. The same lifecycle—ingest, reliable publish, stream processing, read models,
+alerts, and a live dashboard—shows up in industrial IoT, manufacturing telemetry, logistics
+tracking, and similar domains where sensors produce continuous data that must be acted on
+quickly.
 
-See [HANDOFF.md](HANDOFF.md) for build-from-source, deployment, and contributor notes.
+The stack covers Kafka, CQRS, the outbox pattern, Flink stream processing, a Blazor
+dashboard, and observability. Docker is the only prerequisite to run it locally.
+
+See [HANDOFF.md](HANDOFF.md) for build-from-source and contributor notes.
 
 ## What it demonstrates
 
-- **Event-driven backbone** — turbine telemetry and grid load on Kafka; producers decoupled from processing
+This is a working reference implementation, not a production deployment. It walks through
+the full path from simulated sensor feeds to operator-facing updates:
+
+- **Ingestion and reliability** — telemetry arrives via HTTP; the outbox pattern publishes
+  to Kafka in the same transaction as persistence (no dual-write)
+- **Event-driven backbone** — producers decoupled from processing on Kafka topics
 - **CQRS** — write model (commands, outbox) vs read model (query APIs, projections)
-- **Outbox pattern** — single DB transaction, then relay to Kafka (no dual-write)
-- **Stream processing** — aggregation joins, anomaly detection, optimization recommendations
+- **Stream processing** — aggregation joins, anomaly detection, rule-based recommendations
 - **Real-time UI** — Blazor + Radzen over REST and WebSocket
-- **Observability** — Grafana, Loki, Promtail, Prometheus (local Compose and Azure AKS)
+- **Observability** — Grafana, Loki, Promtail, Prometheus
+
+The wind-turbine domain is illustrative. The patterns transfer to any setting where
+multiple event streams must be joined, monitored, and surfaced in near real time.
 
 Design docs: [spec.md](specs/001-aetherstream/spec.md),
 [architecture.md](specs/001-aetherstream/architecture.md).
@@ -98,17 +110,17 @@ sequenceDiagram
   RL->>DB: mark SENT
 ```
 
-### Deployment (local and Azure)
+### Local deployment
 
-Same application stack locally (Docker Compose) and on Azure. Blazor and Grafana are
-public endpoints; all other services run in the Compose network (local) or inside AKS (Azure).
-PostgreSQL is a container locally; on Azure it is **Azure Database for PostgreSQL** outside the cluster.
+The full stack runs in Docker Compose. Blazor and Grafana are exposed on host ports; all
+other services communicate on the Compose network. PostgreSQL runs as a container alongside
+the application services.
 
 ```mermaid
 flowchart TB
   U([User])
 
-  subgraph Local["Local — Docker Compose"]
+  subgraph Local["Docker Compose"]
     LUI[blazor-dashboard :8086]
     LGF[grafana :3000]
     subgraph LBack["Backbone"]
@@ -129,34 +141,8 @@ flowchart TB
     LGF --> LLOKI
   end
 
-  subgraph Azure["Azure"]
-    PG[(PostgreSQL Flexible Server)]
-    subgraph AKS["AKS cluster"]
-      BZ[blazor-dashboard<br/>public LB]
-      GR[grafana<br/>public LB]
-      AGW[api-gateway ILB]
-      PROM[prometheus]
-      LOKI[loki]
-      PROMTAIL[promtail]
-      WS[write-side]
-      DS[datasource]
-      RL[outbox-relay]
-      KF[kafka]
-      SP[stream-processor]
-      DE[decision-engine]
-      BZ -->|:8085| AGW
-      GR --> PROM
-      GR --> LOKI
-      PROMTAIL --> LOKI
-    end
-    AKS --> PG
-  end
-
   U -->|docker compose up| Local
-  U -->|terraform apply| Azure
 ```
-
-Azure deployment runbook: [infra/terraform/README.md](infra/terraform/README.md#architecture).
 
 ## Try it locally
 
@@ -196,15 +182,6 @@ Pre-built dashboard: **Dashboards → AetherStream → AetherStream Logs**.
 | Write-side ingest + `correlationId` | [Grafana → Loki](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22ws%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bcontainer%3D%5C%22aether-write-side%5C%22%7D%20%7C%20json%20%7C%20correlationId%20!%3D%20%5C%22%5C%22%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 | HTTP request rate (Spring services) | [Grafana → Prometheus](http://localhost:3000/explore?orgId=1&schemaVersion=1&panes=%7B%22pm%22%3A%7B%22datasource%22%3A%22prometheus%22%2C%22range%22%3A%7B%22to%22%3A%22now%22%2C%22from%22%3A%22now-15m%22%7D%2C%22queries%22%3A%5B%7B%22datasource%22%3A%7B%22uid%22%3A%22prometheus%22%2C%22type%22%3A%22prometheus%22%7D%2C%22expr%22%3A%22rate(http_server_requests_seconds_count%7Bjob%3D%5C%22spring-services%5C%22%7D%5B1m%5D)%22%2C%22refId%22%3A%22A%22%7D%5D%7D%7D) |
 
-The same LogQL/PromQL queries work on Azure AKS when Grafana is deployed there (`container`
-labels match the local stack).
-
-## Deploy to Azure
-
-The same application stack can be deployed to AKS with Terraform. See
-[infra/terraform/README.md](infra/terraform/README.md) for prerequisites, apply steps, and
-architecture notes. Post-deploy checks: [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md).
-
 ## Documentation
 
 | Document | Description |
@@ -212,7 +189,6 @@ architecture notes. Post-deploy checks: [infra/terraform/SMOKE-VERIFY.md](infra/
 | [HANDOFF.md](HANDOFF.md) | Build from source, ops notes |
 | [specs/001-aetherstream/spec.md](specs/001-aetherstream/spec.md) | Functional requirements |
 | [specs/001-aetherstream/architecture.md](specs/001-aetherstream/architecture.md) | Technical design |
-| [infra/terraform/README.md](infra/terraform/README.md) | Azure deployment |
 
 ## License
 

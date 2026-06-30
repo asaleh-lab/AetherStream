@@ -1,4 +1,4 @@
-# Feature Specification: AetherStream Wind-Energy Real-Time Monitoring Platform
+# Feature Specification: AetherStream Real-Time Processing Demo
 
 **Feature Branch**: `001-aetherstream` (merged to `main`)
 
@@ -6,22 +6,29 @@
 
 **Status**: Complete
 
-Reviewer entry point: [README.md](../../README.md) (reviewer instructions, architecture diagrams, local demo).
+Reviewer entry point: [README.md](../../README.md) (how to run the demo, architecture diagrams).
 
-**Input**: Portfolio brief: a production-shaped, event-driven streaming platform for wind
-energy monitoring built on Kafka + CQRS + Outbox + Flink-style stream processing (JVM),
-with a .NET Blazor + Radzen real-time UI.
+**Input**: A demonstration system that walks through the full lifecycle of real-time event
+processing—using wind-energy monitoring as the scenario. Built on Kafka + CQRS + Outbox +
+Flink-style stream processing (JVM), with a .NET Blazor + Radzen live dashboard.
 
 ## Overview
 
-AetherStream ingests two real-time data streams (wind turbine telemetry and grid load),
-processes them through a streaming pipeline, and produces aggregated energy state, anomaly
-alerts, and optimization recommendations. An operator watches a live dashboard that updates
-without manual refresh.
+AetherStream is a reference demo of how continuous sensor data moves from ingestion through
+stream processing to operator-facing views. The scenario is wind turbines and grid load, but
+the same lifecycle applies wherever IoT devices, industrial equipment, or telemetry feeds
+produce events that must be aggregated, monitored, and acted on in near real time—manufacturing
+lines, fleet tracking, building systems, and similar domains.
 
-The system exists to demonstrate correct design of: an event-driven Kafka backbone,
-reliable publishing via the Outbox pattern, CQRS separation, stream processing
-(Flink-style joins/windows), and an integrated real-time UI.
+The system ingests two simulated streams (turbine telemetry and grid load), processes them
+through a streaming pipeline, and produces aggregated energy state, anomaly alerts, and
+optimization recommendations. An operator watches a live dashboard that updates without
+manual refresh.
+
+The demo is intentionally complete: it covers reliable publishing (outbox pattern), CQRS
+separation, stream joins and windowing, and an integrated real-time UI. It is not sized for
+multi-region production load, but the architectural choices reflect patterns used in industry
+settings.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -31,9 +38,9 @@ As the platform, when a telemetry or grid reading is ingested, the reading is
 persisted and a corresponding event is reliably published to Kafka exactly once from the
 producer's perspective, even if the process crashes immediately after the database commit.
 
-**Why this priority**: This is the reliability core of the system. Without guaranteed
-publishing, every downstream computation is suspect. It is the headline engineering claim
-of the project (Outbox pattern, no dual-write).
+**Why this priority**: Reliable event delivery is the foundation of any real-time pipeline.
+Without it, downstream aggregation, alerting, and dashboards cannot be trusted. The outbox
+pattern avoids the classic dual-write problem between a database and a message broker.
 
 **Independent Test**: Ingest a reading, kill the service after the DB commit but before
 any relay run, restart, and confirm the event still reaches Kafka exactly once (idempotent
@@ -52,7 +59,7 @@ As an operator, I open the dashboard and see the current aggregated energy state
 region (total wind power, grid demand, efficiency score), updating in real time as new
 events flow, without refreshing the page.
 
-**Why this priority**: This is the primary user-facing value and exercises the full
+**Why this priority**: This is the primary user-facing outcome and exercises the full
 pipeline end to end (ingest -> outbox -> Kafka -> stream join -> read model -> WebSocket -> UI).
 
 **Independent Test**: With the pipeline running, push synthetic turbine/grid
@@ -69,8 +76,9 @@ target latency, with no manual refresh.
 As an operator, I am alerted in real time when the system detects a vibration spike, a
 turbine failure pattern, or grid overload risk, with severity-based visual styling.
 
-**Why this priority**: Demonstrates the anomaly-detection stream and the alerting path;
-high value but depends on the aggregation pipeline (P1) being in place.
+**Why this priority**: Anomaly detection on streaming data is a common requirement in
+industrial and IoT contexts—equipment health, threshold breaches, overload conditions.
+This story exercises that path on top of the aggregation pipeline (P1).
 
 **Independent Test**: Feed a turbine event with `vibrationLevel` above threshold and
 confirm an alert appears in the alerts panel with the correct severity, sourced from the
@@ -87,8 +95,8 @@ confirm an alert appears in the alerts panel with the correct severity, sourced 
 As an operator, I receive optimization recommendations (turbine adjustment suggestions,
 grid balancing signals) derived from the current energy state.
 
-**Why this priority**: The decision-engine layer; valuable but built on top of aggregation
-and anomaly detection.
+**Why this priority**: Rule-based or model-driven recommendations sit on top of aggregated
+state—a pattern seen in energy management, supply-chain optimization, and process control.
 
 **Independent Test**: Given a known low-efficiency energy state, confirm the decision
 engine emits a recommendation with an actionable suggestion.
@@ -158,12 +166,13 @@ per-turbine state.
 
 ## Assumptions
 
-- This is a portfolio/demonstration system; scale targets are local/single-node, not multi-region production load.
-- Data sources are simulated (turbine/grid producers); no real SCADA integration.
+- This is a demonstration system; scale targets are local/single-node, not multi-region production load.
+- Data sources are simulated (turbine/grid producers); no real SCADA or device integration.
+- The wind-energy domain is a concrete scenario—the underlying patterns (outbox, CQRS, stream joins, live projections) apply broadly to industrial IoT and telemetry pipelines.
 - Kafka runs in KRaft mode (no ZooKeeper); a single broker is sufficient for the demo.
 - Stream processing is implemented with Apache Flink (or Flink-style semantics) on the JVM; "Flink-style" means real windowing/join/keyed-state semantics, not a literal port.
 - The UI is .NET 10 Blazor Server with Radzen, a separate process from the JVM backend, communicating over REST + WebSocket.
 - Exactly-once is achieved at the system level via at-least-once delivery plus idempotent consumers, not via Kafka transactional exactly-once across all hops.
 - Development was specification-driven with spec-kit tooling and AI (Cursor); abbreviated
   pipeline (no `plan.md`/`tasks.md`). Process detail: [HANDOFF.md](../../HANDOFF.md#development-process-spec-driven).
-- The same application stack runs locally (Docker Compose) and on Azure AKS with Grafana, Loki, Promtail, and Prometheus.
+- The application stack runs locally via Docker Compose.

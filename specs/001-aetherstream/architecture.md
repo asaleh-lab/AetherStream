@@ -6,7 +6,12 @@ Reviewer entry point: [README.md](../../README.md) (how to run the demo, endpoin
 
 This document defines the system architecture that realizes [spec.md](spec.md): module
 boundaries, Kafka topics, Outbox design, CQRS flow, stream-processing topology, persistence,
-APIs, local Compose, and Azure AKS deployment.
+APIs, and local Compose deployment.
+
+AetherStream uses wind-energy telemetry as its scenario, but the layout—simulated feeds,
+transactional outbox, Kafka backbone, Flink processing, CQRS read models, and a live
+dashboard—is the same shape found in industrial IoT, manufacturing monitoring, and other
+real-time telemetry pipelines.
 
 ## 1. Technology stack
 
@@ -22,7 +27,6 @@ APIs, local Compose, and Azure AKS deployment.
 | Logging | Logback + logstash-logback-encoder (JSON) + MDC correlation id |
 | Testing | JUnit 5 + Testcontainers (Kafka, PostgreSQL) |
 | Local infra | `infra/docker-compose.yml` (full stack, single command) |
-| Cloud infra | Azure AKS + Terraform (`infra/terraform/`) |
 | Process | Spec-driven; abbreviated spec-kit path — see [HANDOFF.md](../../HANDOFF.md#development-process-spec-driven) |
 
 ## 2. Monorepo module layout
@@ -44,7 +48,7 @@ AetherStream/
   ui/
     blazor-dashboard/           # .NET 10 Blazor Server + Radzen
   infra/
-    docker-compose.yml  docker/  observability/  k8s/  terraform/
+    docker-compose.yml  docker/  observability/
   # Flyway migrations live on the infrastructure classpath:
   #   core/infrastructure/src/main/resources/db/migration/V*.sql
   scripts/                      # smoke-ingest.ps1 and dev helpers
@@ -169,6 +173,10 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
   rules; emit recommendations / balancing signals.
 - Late/out-of-order data handled with event-time watermarks and allowed lateness.
 
+In an industrial or IoT context, the aggregation and anomaly jobs map directly to combining
+sensor readings across assets, detecting threshold breaches, and triggering downstream
+actions.
+
 ## 8. Persistence (read/write separation)
 
 - Write model: `turbine_state` (+ `outbox_events`).
@@ -196,12 +204,7 @@ Indexes: partial index on `status = 'PENDING'` ordered by `created_at` for effic
 - Local observability stack (included in compose): **Grafana** (UI), **Loki** (logs),
   **Promtail** (Docker log shipper), **Prometheus** (scrapes `/actuator/prometheus` on four
   Spring services under job `spring-services`). Config: `infra/observability/`. Pre-built
-  dashboard and Grafana Explore deep links: repo [README](../../README.md#local-demo).
-- **Azure AKS demo** runs the same Grafana + Loki + Promtail + Prometheus stack in-cluster
-  (`infra/k8s/base/{grafana,loki,promtail,prometheus}/`). Promtail uses Kubernetes pod discovery;
-  log labels (`container=aether-*`) and Prometheus job `spring-services` match local Compose so
-  dashboards and Explore queries work unchanged. Platform diagnostics (AKS control plane,
-  PostgreSQL) flow to Azure Log Analytics via Terraform — separate from application observability.
+  dashboard and Grafana Explore deep links: repo [README](../../README.md#try-it-locally).
 
 ## 11. Local deployment
 
@@ -233,7 +236,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 | `aether-prometheus` | 9090 | Metrics scraper |
 | `aether-loki` | 3100 | Log store |
 
-Grafana local compose login: `admin` / `admin`. Live Azure demo URLs and logins are in the **motivation letter**. Promtail collects stdout from
+Grafana local compose login: `admin` / `admin`. Promtail collects stdout from
 `aether-*` containers; Java services emit JSON logs with `correlationId` for traceability in
 Loki/Explore.
 
@@ -243,29 +246,14 @@ include `ui/blazor-dashboard/` sources for the dashboard image. Flink shaded mod
 `flink-connector-kafka` lists it as `provided` (intended for Flink cluster classpath, not
 standalone fat jars).
 
-## 12. Azure deployment
-
-The same stack runs on Azure AKS. Runbook and architecture diagram:
-[infra/terraform/README.md](../../infra/terraform/README.md).
-
-Blazor and Grafana are deployed **inside the AKS cluster** (public LoadBalancer Services), not on
-App Service or separate VMs. Backend services use internal LoadBalancers. Manifests:
-`infra/k8s/overlays/demo`. Live URLs and credentials: **motivation letter** (not in repo).
-
-**Omitted for price consideration** (see also repo [README](../../README.md)):
-
-- Application Gateway and WAF
-- Private endpoints (PostgreSQL, ACR, Key Vault)
-- Hub-spoke VNet peering
-- Premium ACR / private-link registry
-- Multi-node AKS and zone redundancy
-- App Service or standalone VMs for UI and Grafana — Blazor and Grafana run in the AKS cluster instead
-
-## 13. Key decisions & trade-offs
+## 12. Key decisions & trade-offs
 
 - **At-least-once + idempotent consumers** instead of end-to-end Kafka exactly-once: simpler,
   robust, and the idiomatic way the Outbox pattern is taught and used.
-- **Maven multi-module** over Gradle: most universally recognizable for a Java portfolio;
-  Flink jobs are separate shaded modules to avoid dependency clashes with Spring Boot.
-- **Blazor Server** over WASM: simplest path for high-frequency real-time push.
-- **Single-node Kafka/Postgres**: demonstration scope; topology generalizes to clusters.
+- **Maven multi-module** over Gradle: clear module boundaries; Flink jobs are separate shaded
+  modules to avoid dependency clashes with Spring Boot.
+- **Blazor Server** over WASM: straightforward path for high-frequency real-time push.
+- **Single-node Kafka/Postgres**: appropriate for a local demo; the topology generalizes to
+  clustered deployments when scale requires it.
+- **Simulated data sources**: keeps the demo self-contained; swapping in real MQTT, OPC-UA, or
+  HTTP device feeds would plug into the same write-side ingest APIs.

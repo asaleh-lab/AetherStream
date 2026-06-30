@@ -4,12 +4,17 @@ Cross-session continuity for a **specification-driven** build. **Reviewers start
 [README.md](README.md)** for how to run the demo; use this file for process context and
 contributor notes.
 
-Last updated: 2026-06-07
+Last updated: 2026-06-30
 
 ## Project
 
-Real-time wind-energy monitoring: Kafka backbone, Outbox pattern, CQRS, Flink-style stream
-processing on the JVM, .NET 10 Blazor + Radzen UI.
+An end-to-end demo of real-time event processing, using wind-energy monitoring as the
+scenario. The lifecycle—ingest, reliable publish, stream processing, read models, alerts,
+and a live dashboard—is the same pattern used in industrial IoT, manufacturing telemetry,
+and similar domains.
+
+Stack: Kafka backbone, Outbox pattern, CQRS, Flink-style stream processing on the JVM,
+.NET 10 Blazor + Radzen UI.
 
 ## Development process (spec-driven)
 
@@ -42,7 +47,6 @@ system is the proof of implementation.
 | Read path | `api-gateway` (REST + WebSocket), Blazor dashboard |
 | Observability | Grafana, Loki, Promtail, Prometheus |
 | Local | `docker compose -f infra/docker-compose.yml up -d --build` |
-| Azure | AKS + Terraform; manifests `infra/k8s/overlays/demo` |
 
 **APIs (implemented):** `POST /api/ingest/turbine|grid` (write-side);
 `GET /api/energy/latest`, `/api/alerts`, `/api/recommendations`, `/api/turbines/{id}` (gateway);
@@ -55,17 +59,7 @@ Repo: https://github.com/asaleh-lab/AetherStream
 | Path | Purpose |
 |------|---------|
 | [infra/docker-compose.yml](infra/docker-compose.yml) | Full local stack (15 containers) |
-| [infra/k8s/base/](infra/k8s/base/) | AKS manifests (backbone + UI + observability) |
-| [infra/k8s/overlays/demo](infra/k8s/overlays/demo) | Demo image tags + resource limits |
-| [infra/terraform/](infra/terraform/) | Azure platform (AKS, PostgreSQL, ACR, Key Vault) |
-| [infra/terraform/README.md](infra/terraform/README.md) | Deploy runbook + architecture diagram |
-| [infra/terraform/SMOKE-VERIFY.md](infra/terraform/SMOKE-VERIFY.md) | Post-deploy verification |
-
-Live Azure URLs and Grafana credentials: **motivation letter** (not in repo).
-
-**Omitted for price consideration** (same as [README.md](README.md)): Application Gateway/WAF,
-private endpoints, hub-spoke networking, Premium ACR, multi-node/zone-redundant AKS; Blazor and
-Grafana run in-cluster on AKS instead of App Service or standalone VMs.
+| [infra/observability/](infra/observability/) | Grafana, Loki, Promtail, Prometheus config |
 
 ## Build from source (contributors)
 
@@ -77,7 +71,5 @@ Grafana run in-cluster on AKS instead of App Service or standalone VMs.
 ## Contributor notes
 
 - Shell: **PowerShell** on Windows — chain commands with `;` not `&&`.
-- AKS secrets (`aether-secrets`, `grafana-secrets`) are injected from Key Vault in CD; not in kustomize base.
-- Demo overlay targets a single AKS node (~1.9 vCPU allocatable). If pods stay `Pending` with `Insufficient cpu`, adjust [resource-limits-patch.yaml](infra/k8s/overlays/demo/resource-limits-patch.yaml) or set `aks_node_count = 2`.
-- Prometheus uses job `spring-services` in both Compose and AKS (same PromQL as README Explore links).
+- Prometheus uses job `spring-services` in Compose (see README Explore links for PromQL).
 - Git workflow: feature branches → PR → `main`, Conventional Commits.
